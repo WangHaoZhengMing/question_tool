@@ -1,0 +1,456 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { HorizontalBox, VerticalBox, Palette } from "std-widgets.slint";
+
+component SideBarItem inherits Rectangle {
+    in property <int> tab-index;
+    in property <bool> selected;
+    in property <bool> has-focus;
+    in property <string> text;
+    in property <string> icon: ""; // Icon text (could be emoji or Unicode symbols)
+
+    callback clicked <=> touch.clicked;
+
+    height: 44px;
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-item-index: root.tab-index;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { self.clicked(); }
+
+    // Animation properties for enhanced WinUI3-style effects
+    property <float> hover-scale: touch.has-hover ? 1.02 : 1.0;
+    property <float> press-scale: touch.pressed ? 0.98 : 1.0;
+    property <angle> item-rotation: 0deg;
+    property <length> bounce-offset: 0px;
+
+    states [
+        pressed when touch.pressed : {
+            background.background: #e0e0e0;
+            background.border-radius: 8px;
+            background.drop-shadow-blur: 2px;
+            background.drop-shadow-color: #00000020;
+            item-rotation: 0.5deg;
+            bounce-offset: 2px;  // 按压时轻微向下
+        }
+        hover when touch.has-hover && !root.selected : {
+            background.background: #f5f5f5;
+            background.border-radius: 8px;
+            background.drop-shadow-blur: 4px;
+            background.drop-shadow-color: #00000015;
+            bounce-offset: -1px;  // 悬停时轻微向上
+        }
+        selected when root.selected : {
+            background.background: #f0f8ff;
+            background.border-radius: 10px;
+            background.border-width: 1.5px;
+            background.border-color: #4a9eff;
+            background.drop-shadow-blur: 8px;
+            background.drop-shadow-color: #4a9eff40;
+            bounce-offset: -4px;  // 选中时明显向上跳动，更突出
+        }
+        focused when root.has-focus : {
+            background.background: #eaeaea;
+            background.border-radius: 8px;
+            background.border-width: 2px;
+            background.border-color: #0078d4;
+            background.drop-shadow-blur: 3px;
+            background.drop-shadow-color: #0078d420;
+            bounce-offset: -1px;  // 聚焦时轻微向上
+        }
+    ]
+
+    background := Rectangle {
+        background: transparent;
+        border-radius: 0px;
+        y: root.bounce-offset;
+        
+        animate background, border-radius, border-color { 
+            duration: 300ms; 
+            easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        animate y { 
+            duration: 400ms; 
+            easing: cubic-bezier(0.68, -0.55, 0.265, 1.55); // 弹性跳动效果
+        }
+        animate border-width {
+            duration: 200ms;
+            easing: ease-out;
+        }
+        animate drop-shadow-blur, drop-shadow-color {
+            duration: 250ms;
+            easing: ease-out;
+        }
+    }
+
+    content := HorizontalBox {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        alignment: start;
+
+        icon-container := Rectangle {
+            width: 20px;
+            height: 20px;
+            
+            // Add subtle bounce animation for icon with vertical bounce
+            property <float> icon-scale: root.selected ? 1.1 : (touch.has-hover ? 1.05 : 1.0);
+            property <angle> icon-rotate: touch.pressed ? 5deg : 0deg;
+            property <length> icon-bounce: root.selected ? -2px : (touch.has-hover ? -1px : 0px);
+            
+            y: icon-bounce;
+            
+            animate icon-scale {
+                duration: 250ms;
+                easing: cubic-bezier(0.68, -0.55, 0.265, 1.55); // Bouncy easing
+            }
+            animate icon-rotate {
+                duration: 150ms;
+                easing: ease-out;
+            }
+            animate y {
+                duration: 350ms;
+                easing: cubic-bezier(0.68, -0.55, 0.265, 1.55); // 与背景同样的弹性效果
+            }
+            
+            icon-text := Text {
+                text: root.icon;
+                font-size: 16px * icon-container.icon-scale;
+                color: root.selected ? #0067c0 : (touch.has-hover ? #1976d2 : #424242);
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                
+                animate color, font-size { 
+                    duration: 250ms; 
+                    easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                }
+            }
+        }
+
+        label := Text {
+            text: root.text;
+            font-size: 14px;
+            font-weight: root.selected ? 600 : 400;
+            color: root.selected ? #000000 : (touch.has-hover ? #1a1a1a : #424242);
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            
+            animate color, font-weight { 
+                duration: 250ms; 
+                easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            }
+        }
+    }
+
+    touch := TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component SideBar inherits Rectangle {
+    // Support legacy string array - keep it simple
+    in property <[string]> model: [];
+    in property <string> title <=> title-label.text;
+    out property <int> current-item: 0;
+    out property <int> current-focused: fs.has-focus ? fs.focused-tab : -1;
+    
+    // Resizable properties
+    in-out property <length> sidebar-width: 280px;
+    property <length> min-sidebar-width: 200px;
+    property <length> max-sidebar-width: 400px;
+
+    // Function to get default icon for common menu items
+    pure function get-default-icon(text: string) -> string {
+        if (text == "听力理解") { "🎧" }
+        else if (text == "单项选择") { "📝" }
+        else if (text == "完型填空") { "📋" }
+        else if (text == "阅读理解") { "📖" }
+        else if (text == "语篇填空") { "✏️" }
+        else if (text == "填空题") { "📄" }
+        else if (text == "About") { "" }
+        else if (text == "Home") { "🏠" }
+        else if (text == "Settings") { "⚙️" }
+        else { "📄" }
+    }
+
+    width: root.sidebar-width;
+    forward-focus: fs;
+    
+    // Smooth width animation when programmatically changed
+    animate width {
+        duration: 200ms;
+        easing: ease-out;
+    }
+
+    // Animation properties for sidebar entrance
+    property <float> sidebar-opacity: 1.0;
+    property <length> sidebar-slide: 0px;
+
+    // Main background with Windows 11 style and subtle animations
+    main-bg := Rectangle {
+        background: #fafafa;
+        border-width: 0px;
+        border-color: transparent;
+        opacity: root.sidebar-opacity;
+        x: root.sidebar-slide;
+        
+        // Subtle background pulse on focus changes
+        property <color> bg-color: #fafafa;
+        
+        animate background, opacity, x {
+            duration: 400ms;
+            easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+    }
+
+    // Resizable handle (replaces the simple border line)
+    resize-handle := Rectangle {
+        x: parent.width - 4px;
+        width: 8px;
+        background: transparent;
+        opacity: root.sidebar-opacity;
+        
+        // Visual indicator with state feedback
+        handle-line := Rectangle {
+            x: 3px;
+            width: 1px;
+            background: resize-area.has-hover ? #0078d4 : 
+                       (root.sidebar-width <= root.min-sidebar-width || root.sidebar-width >= root.max-sidebar-width) ? #ff6b6b : #e5e5e5;
+            
+            animate background {
+                duration: 200ms;
+                easing: ease-out;
+            }
+        }
+        
+        // Hover indicator with enhanced feedback
+        hover-indicator := Rectangle {
+            x: 1px;
+            width: 6px;
+            background: resize-area.has-hover ? #0078d410 : transparent;
+            border-radius: 3px;
+            
+            animate background {
+                duration: 200ms;
+                easing: ease-out;
+            }
+        }
+        
+        // Size limit indicator
+        limit-indicator := Rectangle {
+            x: 0px;
+            width: 8px;
+            height: 20px;
+            y: (parent.height - self.height) / 2;
+            background: (root.sidebar-width <= root.min-sidebar-width || root.sidebar-width >= root.max-sidebar-width) ? #ff6b6b20 : transparent;
+            border-radius: 4px;
+            
+            animate background {
+                duration: 300ms;
+                easing: ease-out;
+            }
+        }
+        
+        resize-area := TouchArea {
+            mouse-cursor: col-resize;
+            
+            property <length> last-mouse-x: 0px;
+            
+            // Double-click to reset to default width
+            double-clicked => {
+                root.sidebar-width = 280px;
+            }
+            
+            moved => {
+                if (self.pressed) {
+                    // Calculate the difference and update width
+                    root.sidebar-width = Math.max(root.min-sidebar-width, 
+                        Math.min(root.max-sidebar-width, 
+                            root.sidebar-width + (self.mouse-x - self.last-mouse-x)));
+                }
+                self.last-mouse-x = self.mouse-x;
+            }
+        }
+        
+        animate opacity {
+            duration: 300ms;
+            easing: ease-out;
+        }
+    }
+
+    // Animated backdrop effect
+    backdrop := Rectangle {
+        background: #ffffff08;
+        opacity: 0.0;
+        
+        states [
+            active when root.current-focused >= 0 : {
+                opacity: 1.0;
+            }
+        ]
+        
+        animate opacity {
+            duration: 500ms;
+            easing: ease-in-out;
+        }
+    }
+
+    VerticalBox {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 24px;
+        padding-bottom: 24px;
+        spacing: 8px;
+        alignment: start;
+
+        // Title section with enhanced animations
+        title-container := Rectangle {
+            height: 40px;
+            
+            // Title entrance animation
+            property <length> title-offset: 0px;
+            property <float> title-opacity: 1.0;
+            
+            title-label := Text {
+                font-size: 20px;
+                font-weight: 600;
+                color: #1f1f1f;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                x: 16px + title-container.title-offset;
+                opacity: title-container.title-opacity;
+                
+                animate x, opacity, color {
+                    duration: 400ms;
+                    easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                }
+            }
+            
+            // Subtle underline animation
+            underline := Rectangle {
+                y: parent.height - 2px;
+                height: 2px;
+                width: 0px;
+                background: #4a9eff;
+                x: 16px;
+                
+                states [
+                    active when root.current-focused >= 0 : {
+                        width: title-label.preferred-width;
+                    }
+                ]
+                
+                animate width {
+                    duration: 600ms;
+                    easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                }
+            }
+        }
+
+        // Navigation items with staggered animations
+        navigation := VerticalLayout {
+            spacing: 4px;
+            alignment: start;
+            accessible-role: tab-list;
+            accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current-item;
+            accessible-label: root.title;
+            accessible-item-count: root.model.length;
+            
+            // Animation container properties
+            property <float> nav-opacity: 1.0;
+            property <length> nav-slide: 0px;
+            
+            opacity: nav-opacity;
+            x: nav-slide;
+            
+            animate opacity, x {
+                duration: 500ms;
+                easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            }
+
+            fs := FocusScope {
+                key-pressed(event) => {
+                    if (event.text == "\n") {
+                         root.current-item = root.current-focused;
+                         return accept;
+                    }
+                    if (event.text == Key.UpArrow) {
+                         self.focused-tab = Math.max(self.focused-tab - 1, 0);
+                         return accept;
+                    }
+                    if (event.text == Key.DownArrow) {
+                         self.focused-tab = Math.min(self.focused-tab + 1, root.model.length - 1);
+                         return accept;
+                    }
+                    return reject;
+                }
+
+                key-released(event) => {
+                    if (event.text == " ") {
+                         root.current-item = root.current-focused;
+                         return accept;
+                    }
+                    return reject;
+                }
+
+                property <int> focused-tab: 0;
+                x: 0;
+                width: 0;
+            }
+
+            for item[index] in root.model : Rectangle {
+                // Animation wrapper for staggered entrance effects
+                property <float> item-opacity: 1.0;
+                property <length> item-slide: 0px;
+                property <float> item-scale: 1.0;
+                
+                height: nav-item.height;
+                opacity: item-opacity;
+                x: item-slide;
+                
+                animate opacity, x {
+                    duration: 400ms + index * 50ms; // Staggered timing
+                    easing: cubic-bezier(0.34, 1.56, 0.64, 1); // Bouncy entrance
+                }
+                
+                nav-item := SideBarItem {
+                    clicked => { 
+                        root.current-item = index;
+                        // Add subtle haptic-like feedback through quick animation
+                        item-scale = 0.95;
+                        // Reset scale after short delay (simulated with timer would be better)
+                    }
+                    tab-index: index;
+                    has-focus: index == root.current-focused;
+                    text: item;
+                    icon: root.get-default-icon(item);
+                    selected: index == root.current-item;
+                }
+            }
+        }
+
+        // Bottom section for additional content with fade-in animation
+        Rectangle {
+            vertical-stretch: 1;
+        }
+
+        bottom-content := VerticalBox {
+            spacing: 4px;
+            
+            // Animation properties for bottom content
+            property <float> bottom-opacity: 1.0;
+            
+            opacity: bottom-opacity;
+            
+            animate opacity {
+                duration: 600ms;
+                easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            }
+            
+            @children
+        }
+    }
+}

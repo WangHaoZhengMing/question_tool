@@ -1,0 +1,341 @@
+import { Button, LineEdit, ComboBox, ScrollView, VerticalBox, HorizontalBox, GroupBox, CheckBox, StandardButton } from "std-widgets.slint";
+
+export component LLMSettings inherits Rectangle {
+    in-out property <string> current-provider: "GPT";
+    in-out property <string> current-model: "gpt-4o";
+    in-out property <string> api-key: "";
+    in-out property <string> base-url: "";
+    in-out property <bool> enable-streaming: true;
+    in-out property <string> github-token: "";
+    in-out property <string> test-result: "";
+    in-out property <bool> is-testing: false;
+
+    callback provider-changed(string);
+    callback model-changed(string);
+    callback api-key-changed(string);
+    callback base-url-changed(string);
+    callback github-token-changed(string);
+    callback streaming-changed(bool);
+    callback test-connection();
+    callback save-settings();
+    callback load-settings();
+
+    background: #f5f5f5;
+
+    ScrollView {
+        VerticalBox {
+            alignment: start;
+            padding: 20px;
+            spacing: 15px;
+
+            // 标题
+            Text {
+                text: "LLM 配置设置";
+                font-size: 24px;
+                font-weight: 700;
+                color: #333333;
+                horizontal-alignment: center;
+            }
+
+            // LLM 提供商选择
+            GroupBox {
+                title: "LLM 提供商";
+                
+                VerticalBox {                    
+                    HorizontalBox {
+                        alignment: start;
+                        spacing: 10px;
+                        
+                        Text {
+                            text: "选择提供商:";
+                            vertical-alignment: center;
+                            width: 100px;
+                        }
+                        
+                        provider-combo := ComboBox {
+                            model: ["GPT (OpenAI)", "GitHub Copilot"];
+                            current-value: root.current-provider == "GPT" ? "GPT (OpenAI)" : "GitHub Copilot";
+                            selected => {
+                                root.current-provider = self.current-value == "GPT (OpenAI)" ? "GPT" : "GitHub";
+                                root.provider-changed(root.current-provider);
+                            }
+                        }
+                        
+                        // Rectangle {
+                        //     width: 20px;
+                        //     height: 20px;
+                        //     border-radius: 10px;
+                        //     background: root.current-provider == "GPT" ? #00a86b : #24292f;
+                        // }
+                    }
+
+                    Text {
+                        text: root.current-provider == "GPT" 
+                            ? "使用 OpenAI GPT 模型，支持文本和图像分析" 
+                            : "使用 GitHub Models API，基于 GitHub Copilot";
+                        font-size: 12px;
+                        color: #666666;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+
+            // 模型设置
+            GroupBox {
+                title: "模型配置";
+                
+                VerticalBox {
+                    spacing: 10px;
+                    
+                    HorizontalBox {
+                        alignment: start;
+                        spacing: 10px;
+                        
+                        Text {
+                            text: "模型:";
+                            vertical-alignment: center;
+                            width: 100px;
+                        }
+                        
+                        model-combo := ComboBox {
+                            model: root.current-provider == "GPT" 
+                                ? ["gpt-4o", "gpt-4o-mini", "claude-sonnet-3.5","claude-sonnet-4","gemini-2.5-pro"] 
+                                : ["gpt-4o", "gpt-4.1", "gpt-5","o3-mini","claude-sonnet-3.5","claude-sonnet-4","gemini-2.5-pro"];
+                            current-value: root.current-model;
+                            selected => {
+                                root.current-model = self.current-value;
+                                root.model-changed(root.current-model);
+                            }
+                        }
+                    }
+
+                    CheckBox {
+                        text: "启用流式响应";
+                        checked: root.enable-streaming;
+                        toggled => {
+                            root.enable-streaming = self.checked;
+                            root.streaming-changed(root.enable-streaming);
+                        }
+                    }
+
+                    Text {
+                        text: root.enable-streaming 
+                            ? "启用后将实时显示 AI 响应内容" 
+                            : "禁用后将等待完整响应再显示";
+                        font-size: 12px;
+                        color: #666666;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+
+            // API 配置
+            GroupBox {
+                title: root.current-provider == "GPT" ? "OpenAI API 配置" : "GitHub API 配置";
+                
+                VerticalBox {
+                    spacing: 15px;
+                    
+                    if root.current-provider == "GPT": VerticalBox {
+                        spacing: 10px;
+                        
+                        HorizontalBox {
+                            alignment: start;
+                            spacing: 10px;
+                            
+                            Text {
+                                text: "API Key:";
+                                vertical-alignment: center;
+                                width: 100px;
+                            }
+                            
+                            api-key-input := LineEdit {
+                                placeholder-text: "输入您的 OpenAI API Key";
+                                input-type: password;
+                                text: root.api-key;
+                                edited => {
+                                    root.api-key = self.text;
+                                    root.api-key-changed(self.text);
+                                }
+                            }
+                        }
+
+                        HorizontalBox {
+                            alignment: start;
+                            spacing: 10px;
+                            
+                            Text {
+                                text: "Base URL:";
+                                vertical-alignment: center;
+                                width: 100px;
+                            }
+                            
+                            base-url-input := LineEdit {
+                                placeholder-text: "https://api.openai.com/v1 (可选)";
+                                text: root.base-url;
+                                edited => {
+                                    root.base-url = self.text;
+                                    root.base-url-changed(self.text);
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "提示：可以使用自定义的 OpenAI 兼容端点";
+                            font-size: 12px;
+                            color: #666666;
+                            wrap: word-wrap;
+                        }
+                    }
+                    
+                    if root.current-provider == "GitHub": VerticalBox {
+                        spacing: 10px;
+                        
+                        HorizontalBox {
+                            alignment: start;
+                            spacing: 10px;
+                            
+                            Text {
+                                text: "GitHub Token:";
+                                vertical-alignment: center;
+                                width: 100px;
+                            }
+                            
+                            github-token-input := LineEdit {
+                                placeholder-text: "输入您的 GitHub Personal Access Token";
+                                input-type: password;
+                                text: root.github-token;
+                                edited => {
+                                    root.github-token = self.text;
+                                    root.github-token-changed(self.text);
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "需要具有适当权限的 GitHub Personal Access Token";
+                            font-size: 12px;
+                            color: #666666;
+                            wrap: word-wrap;
+                        }
+
+                        HorizontalBox {
+                            alignment: start;
+                            spacing: 5px;
+                            
+                            Text {
+                                text: "获取 Token:";
+                                font-size: 12px;
+                                color: #666666;
+                            }
+                            
+                            Text {
+                                text: "https://github.com/settings/tokens";
+                                font-size: 12px;
+                                color: #0366d6;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 连接测试
+            GroupBox {
+                title: "连接测试";
+                
+                VerticalBox {
+                    spacing: 10px;
+                    
+                    HorizontalBox {
+                        alignment: center;
+                        spacing: 10px;
+                        
+                        test-btn := Button {
+                            text: root.is-testing ? "测试中..." : "测试连接";
+                            enabled: !root.is-testing;
+                            clicked => {
+                                root.test-connection();
+                            }
+                        }
+                    }
+
+                    if root.test-result != "": Rectangle {
+                        border-width: 1px;
+                        border-color: #666666;
+                        border-radius: 4px;
+                        background: #f8f9fa;
+                        
+                        VerticalBox {
+                            padding: 10px;
+                            
+                            Text {
+                                text: root.test-result;
+                                color: #333333;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "配置管理";
+            HorizontalBox {
+                alignment: center;
+                spacing: 15px;
+                
+                load-btn := Button {
+                    text: "加载配置";
+                    clicked => {
+                        root.load-settings();
+                    }
+                }
+                
+                save-btn := Button {
+                    text: "保存配置";
+                    primary: true;
+                    clicked => {
+                        root.save-settings();
+                    }
+                }
+            }}
+
+            // 使用说明
+            GroupBox {
+                title: "使用说明";
+                
+                VerticalBox {
+                    spacing: 8px;
+                    
+                    Text {
+                        text: "• GPT 模式：使用 OpenAI 的 GPT 模型，需要 OpenAI API Key";
+                        font-size: 12px;
+                        color: #333333;
+                        wrap: word-wrap;
+                    }
+                    
+                    Text {
+                        text: "• GitHub 模式：使用 GitHub Models API，需要 GitHub Token";
+                        font-size: 12px;
+                        color: #333333;
+                        wrap: word-wrap;
+                    }
+                    
+                    Text {
+                        text: "• 流式响应：启用后可以实时看到 AI 的回复过程";
+                        font-size: 12px;
+                        color: #333333;
+                        wrap: word-wrap;
+                    }
+                    
+                    Text {
+                        text: "• 配置会自动保存到本地，重启应用后会自动加载";
+                        font-size: 12px;
+                        color: #333333;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+    }
+}

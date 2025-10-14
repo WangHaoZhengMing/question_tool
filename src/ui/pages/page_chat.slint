@@ -1,0 +1,160 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Switch, GridBox, ListView, ScrollView, HorizontalBox, VerticalBox, Palette, TextEdit, Button, LineEdit} from "std-widgets.slint";
+
+import { GallerySettings } from "../app_settings.slint";
+
+// 消息类型枚举
+export struct Message {
+    content: string,
+    is-user: bool,
+    is-streaming: bool,
+}
+
+// 消息组件
+component MessageBubble inherits Rectangle {
+    in property <Message> message;
+    
+    background: message.is-user ? #007AFF : Palette.alternate-background;
+    border-radius: 15px;
+    border-width: message.is-streaming ? 2px : 0px;
+    border-color: message.is-streaming ? #4CAF50 : transparent;
+    
+    HorizontalBox {
+        padding: 12px;
+        spacing: 8px;
+        
+        Text {
+            text: message.content;
+            color: message.is-user ? white : Palette.foreground;
+            wrap: word-wrap;
+            font-size: 14px;
+        }
+        
+        if message.is-streaming: Rectangle {
+            width: 30px;
+            height: 20px;
+            
+            // "思考中"动画指示器
+            HorizontalBox {
+                alignment: LayoutAlignment.center;
+                spacing: 2px;
+                
+                for dot[index] in [1, 2, 3]: Rectangle {
+                    width: 4px;
+                    height: 4px;
+                    border-radius: 2px;
+                    background: #4CAF50;
+                    
+                    animate background {
+                        duration: 600ms;
+                        delay: index * 200ms;
+                        iteration-count: -1;
+                        easing: ease-in-out;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Page inherits VerticalBox {
+    in property <string> title: "title";
+    in property <string> description: "description";
+    accessible-role: tab-panel;
+    alignment: LayoutAlignment.stretch;
+    accessible-label: root.title;
+    
+    // 对话相关属性
+    property <string> input-text: "";
+    in-out property <image> current_image;
+    property <[Message]> messages: [
+        { content: "欢迎使用智能对话助手！请输入您的问题。", is-user: false, is-streaming: false },
+        { content: "你好，我想了解一下AI技术", is-user: true, is-streaming: false },
+        { content: "AI技术是一个非常广泛的领域，包括机器学习、深度学习、自然语言处理等多个方向...", is-user: false, is-streaming: true }
+    ];
+    property <bool> is-sending: false;
+    
+    // 回调函数
+    callback send-message(string);
+    callback message-received(string, bool /* is_streaming */);
+    
+    // 发送消息函数
+    function send-user-message() {
+        if (root.input-text != "") {
+            // 发送到后端
+            root.send-message(root.input-text);
+            
+            // 清空输入框并设置发送状态
+            root.input-text = "";
+            root.is-sending = true;
+        }
+    }
+
+    // 主要布局：消息显示区域 + 输入区域
+    VerticalBox {
+        // 消息显示区域
+        ScrollView {
+            viewport-width: self.visible-width;
+            
+            VerticalBox {
+                alignment: LayoutAlignment.start;
+                spacing: 12px;
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: 20px;
+                padding-bottom: 20px;
+                
+                // 消息列表
+                for message[index] in root.messages: HorizontalBox {
+                    alignment: message.is-user ? LayoutAlignment.end : LayoutAlignment.start;
+                    padding-left: message.is-user ? 60px : -20px;
+                    padding-right: message.is-user ? -20px : 60px;
+                    
+                    MessageBubble {
+                        message: message;
+                        min-width: 100px;
+                        max-width: 400px;
+                    }
+                }
+            }
+        }
+        
+        // 输入区域
+        Rectangle {
+            height: 80px;
+            background: Palette.background;
+            border-color: Palette.border;
+            border-width: 1px;
+            border-radius: 10px;
+            
+            HorizontalBox {
+                padding: 10px;
+                spacing: 10px;
+                
+                LineEdit {
+                    text <=> root.input-text;
+                    placeholder-text: "请输入您的问题...";
+                    enabled: !root.is-sending;
+                    
+                    accepted => {
+                        root.send-user-message();
+                    }
+                }
+                
+                Button {
+                    text: root.is-sending ? "发送中..." : "发送";
+                    preferred-width: 80px;
+                    enabled: !root.is-sending && root.input-text != "";
+                    
+                    clicked => {
+                        root.send-user-message();
+                    }
+                }
+            }
+        }
+    }
+
+    @children
+}

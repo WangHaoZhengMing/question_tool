@@ -1,0 +1,138 @@
+
+import { Switch, GridBox, ListView, ScrollView, HorizontalBox, VerticalBox, Palette, TextEdit, Button, GroupBox} from "std-widgets.slint";
+
+
+export component Page inherits VerticalBox {
+    in property <string> title: "Page";
+    in property <string> description: "description";
+    accessible-role: tab-panel;
+    alignment: LayoutAlignment.stretch;
+    accessible-label: root.title;
+
+    in-out property <string> question_type: root.title;
+    in-out property <string> prefill_text: "";
+    in-out property <image> current_image;
+    in-out property <string> model_reply: "";
+    property <string> displayed_reply: "";
+    in-out property <bool> is_streaming: false;
+    callback send_message();
+    callback copy_reply_and_addcode();
+    // callback current_question_type();
+    HorizontalBox {
+        // 左栏：输入和图片
+        
+        GroupBox {
+            title: root.title;
+            VerticalBox {
+                width: 100%;
+                Rectangle {
+                    // height: 200px;
+                    min-width: 170px;
+                    min-height: 50px;
+                    border-radius: 6px;
+                    border-width: 1px;
+                    border-color: Palette.border;
+                    TextEdit {
+                        text <=> root.prefill_text;
+                        placeholder-text: "请输入文本";
+                        x: 0;
+                        y: 0;
+                        width: parent.width;
+                        height: parent.height;
+                    }
+
+                    Button {
+                        text: "发送";
+                        width: 60px;
+                        height: 30px;
+                        primary: true;
+                        x: parent.width - self.width - 8px;
+                        y: parent.height - self.height - 8px;
+                        clicked => {
+                            root.send_message();
+                        }
+                    }
+                }
+
+                Image {
+                    source: current_image;
+                    width: 50%;
+                    height: 300px;
+                }
+            }
+        }
+
+        
+        // 右栏：模型回复
+        GroupBox {
+            title: "模型回复";
+            VerticalBox {
+                Rectangle {
+                    min-width: 170px;
+                    min-height: 50px;
+                    border-radius: 4px;
+                    TextEdit {
+                        text: root.model_reply;
+                        placeholder-text: "模型回复将显示在这里...";
+                        read-only: true;
+                        width: parent.width;
+                        height: parent.height;
+                        
+                        // 添加流畅的内容变化动画
+                        animate opacity {
+                            duration: 200ms;
+                            easing: ease-in-out;
+                        }
+                    }
+                    
+                    // 流式显示指示器
+                    Rectangle {
+                        visible: root.is_streaming;
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 4px;
+                        background: Palette.accent-background;
+                        x: parent.width - 20px;
+                        y: parent.height - 20px;
+                        
+                        // 脉冲动画效果
+                        animate width {
+                            duration: 800ms;
+                            easing: ease-in-out;
+                        }
+                        animate height {
+                            duration: 800ms;
+                            easing: ease-in-out;
+                        }
+                        Timer {
+                            interval: 800ms;
+                            running: root.is_streaming;
+                            triggered => {
+                                if (parent.width == 8px) {
+                                    parent.width = 12px;
+                                    parent.height = 12px;
+                                } else {
+                                    parent.width = 8px;
+                                    parent.height = 8px;
+                                }
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: "复制";
+                        width: 50px;
+                        height: 25px;
+                        x: parent.width - self.width - 8px;
+                        y: 8px;
+                        clicked => {
+                            root.copy_reply_and_addcode();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @children
+}

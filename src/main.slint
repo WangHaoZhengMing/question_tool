@@ -1,0 +1,149 @@
+import { CheckBox, StandardListView } from "std-widgets.slint";
+import { SingleChoice,Page} from "ui/pages/pages.slint";
+import { Page } from "ui/pages/page.slint";
+import { SideBar } from "ui/side_bar.slint";
+import { LLMSettings } from "ui/pages/setting.slint";
+
+export component App inherits Window {
+    preferred-width: 800px;
+    preferred-height: 500px;
+    title: @tr("题目配置工具");
+    full-screen: false;
+    icon: @image-url("../icon/icon.png");
+    
+    in-out property <image> current_image;
+    in-out property <string> prefill_text: "";
+    in-out property <string> model_reply: "";
+
+    in-out property <bool> is_streaming: false;
+    in-out property <string> question_type: side-bar.current-item == 0 ? "听力理解" : side-bar.current-item == 1 ? "单选题" : side-bar.current-item == 2 ? "完型填空" : side-bar.current-item == 3 ? "阅读理解" : side-bar.current-item == 4 ? "语篇填空" : side-bar.current-item == 5 ? "填空题" : "未知";
+    
+    // LLM 设置相关属性
+    in-out property <string> llm-provider: "GPT";
+    in-out property <string> llm-model: "gpt-4o";
+    in-out property <string> llm-api-key: "";
+    in-out property <string> llm-base-url: "";
+    in-out property <string> llm-github-token: "";
+    in-out property <bool> llm-enable-streaming: true;
+    in-out property <string> llm-test-result: "";
+    in-out property <bool> llm-is-testing: false;
+    callback send_message();
+    callback copy_reply_and_addcode();
+    
+    // LLM 设置回调
+    callback llm-provider-changed(string);
+    callback llm-model-changed(string);
+    callback llm-api-key-changed(string);
+    callback llm-base-url-changed(string);
+    callback llm-github-token-changed(string);
+    callback llm-streaming-changed(bool);
+    callback llm-test-connection();
+    callback llm-save-settings();
+    callback llm-load-settings();
+
+
+    // MenuBar {
+    //     Menu {
+    //         title: @tr("MenuBar" => "File");
+    //         MenuItem { title: @tr("MenuBar" => "Open"); }
+    //         Menu {
+    //             title: @tr("MenuBar" => "Open Recent");
+    //             for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
+    //         }
+    //         MenuSeparator {}
+    //         MenuItem { title: @tr("MenuBar" => "Save"); }
+    //         Menu {
+    //             title: @tr("MenuBar" => "Save As");
+    //             for x in 10: MenuItem { title: @tr("MenuBar" => "Name {}", x+1);  }
+    //         }
+    //         MenuSeparator {}
+    //         MenuItem { title: @tr("MenuBar" => "MenuItem with Icon"); icon: @image-url("thumbsup.png"); }
+    //         MenuItem { title: @tr("MenuBar" => "MenuItem with Checkmark"); checkable: true; checked: true; }
+    //     }
+    //     Menu {
+    //         title: @tr("MenuBar" => "Edit");
+    //         MenuItem { title: @tr("MenuBar" => "Copy"); }
+    //         MenuItem { title: @tr("MenuBar" => "Paste"); }
+    //     }
+    // }
+
+    HorizontalLayout {
+        side-bar := SideBar {
+            title: @tr("题目配置工具");
+            model: [
+            @tr("Menu" => "听力理解"), @tr("Menu" => "单项选择"), @tr("Menu" => "完型填空"), 
+            @tr("Menu" => "阅读理解"), @tr("Menu" => "语篇填空"), @tr("Menu" => "填空题"),
+                @tr("Menu" => "LLM 设置"), @tr
+               ("Menu" => "About")
+            ];
+        }
+
+        if(side-bar.current-item == 0): Page {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            send_message => {
+                root.send_message();
+            }
+            copy_reply_and_addcode => {
+                root.copy_reply_and_addcode();
+            }
+        }
+        if(side-bar.current-item == 1): SingleChoice {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            send_message => {
+                root.send_message();
+            }
+            copy_reply_and_addcode => {
+                root.copy_reply_and_addcode();
+            }
+        }
+        // if(side-bar.current-item == 2) : TableViewPage {}
+        // if(side-bar.current-item == 3) : TextEditPage {}
+        // if(side-bar.current-item == 4) : EasingsPage {}
+        // if(side-bar.current-item == 5) : AboutPage {}
+        if(side-bar.current-item == 6): LLMSettings {
+            current-provider <=> root.llm-provider;
+            current-model <=> root.llm-model;
+            api-key <=> root.llm-api-key;
+            base-url <=> root.llm-base-url;
+            github-token <=> root.llm-github-token;
+            enable-streaming <=> root.llm-enable-streaming;
+            test-result <=> root.llm-test-result;
+            is-testing <=> root.llm-is-testing;
+            provider-changed(provider) => {
+                root.llm-provider-changed(provider);
+            }
+            model-changed(model) => {
+                root.llm-model-changed(model);
+            }
+            api-key-changed(key) => {
+                root.llm-api-key-changed(key);
+            }
+            base-url-changed(url) => {
+                root.llm-base-url-changed(url);
+            }
+            github-token-changed(token) => {
+                root.llm-github-token-changed(token);
+            }
+            streaming-changed(enabled) => {
+                root.llm-streaming-changed(enabled);
+            }
+            test-connection() => {
+                root.llm-test-connection();
+            }
+            save-settings() => {
+                root.llm-save-settings();
+            }
+            load-settings() => {
+                root.llm-load-settings();
+            }
+        }
+    }
+}
