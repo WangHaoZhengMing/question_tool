@@ -21,13 +21,10 @@ pub enum LLMProvider {
 /// 通用 LLM 后端 trait
 #[async_trait::async_trait]
 pub trait LLMBackend: Send + Sync {
-    /// 获取提供商类型
     fn provider(&self) -> LLMProvider;
-    
-    /// 获取模型名称
+
     fn model_name(&self) -> &str;
     
-    /// 发送消息到 LLM
     async fn send_message(
         &self,
         text: String,
@@ -56,6 +53,46 @@ impl LLMManager {
         }
     }
 
+     pub fn from_config(config: &crate::app::llm_settings::LLMConfig) -> Self {
+        let mut manager = Self::new();
+
+        // 添加 GPT 后端
+        let mut gpt_backend = GPTBackend::default();
+        if let Some(api_key) = &config.api_key {
+            gpt_backend = gpt_backend.with_api_key(api_key.clone());
+        }
+        if let Some(base_url) = &config.base_url {
+            if !base_url.is_empty() {
+                gpt_backend = gpt_backend.with_base_url(base_url.clone());
+            }
+        }
+        gpt_backend.model = config.model.clone();
+
+        let gpt_index = manager.add_backend(Box::new(gpt_backend));
+
+        // 添加 GitHub 后端
+        let mut github_backend = GitHubBackend::new(config.model.clone());
+        if let Some(token) = &config.github_token {
+            github_backend = github_backend.with_api_key(token.clone());
+        }
+
+        let github_index = manager.add_backend(Box::new(github_backend));
+
+        // 设置当前后端
+        match config.provider.as_str() {
+            "GPT" => {
+                let _ = manager.set_current_backend(gpt_index);
+            }
+            "GitHub" => {
+                let _ = manager.set_current_backend(github_index);
+            }
+            _ => {
+                let _ = manager.set_current_backend(gpt_index);
+            }
+        }
+
+        manager
+    }
     /// 添加后端
     pub fn add_backend(&mut self, backend: Box<dyn LLMBackend>) -> usize {
         let index = self.backends.len();
@@ -128,49 +165,6 @@ impl Default for LLMManager {
     }
 }
 
-impl LLMManager {
-    /// 从配置创建 LLM 管理器（统一的后端创建入口）
-    pub fn from_config(config: &crate::app::llm_settings::LLMConfig) -> Self {
-        let mut manager = Self::new();
-
-        // 添加 GPT 后端
-        let mut gpt_backend = GPTBackend::default();
-        if let Some(api_key) = &config.api_key {
-            gpt_backend = gpt_backend.with_api_key(api_key.clone());
-        }
-        if let Some(base_url) = &config.base_url {
-            if !base_url.is_empty() {
-                gpt_backend = gpt_backend.with_base_url(base_url.clone());
-            }
-        }
-        gpt_backend.model = config.model.clone();
-
-        let gpt_index = manager.add_backend(Box::new(gpt_backend));
-
-        // 添加 GitHub 后端
-        let mut github_backend = GitHubBackend::new(config.model.clone());
-        if let Some(token) = &config.github_token {
-            github_backend = github_backend.with_api_key(token.clone());
-        }
-
-        let github_index = manager.add_backend(Box::new(github_backend));
-
-        // 设置当前后端
-        match config.provider.as_str() {
-            "GPT" => {
-                let _ = manager.set_current_backend(gpt_index);
-            }
-            "GitHub" => {
-                let _ = manager.set_current_backend(github_index);
-            }
-            _ => {
-                let _ = manager.set_current_backend(gpt_index);
-            }
-        }
-
-        manager
-    }
-}
 
 /// 为了向后兼容，保留原有的函数接口
 pub async fn send_message_to_llm(
@@ -182,12 +176,6 @@ pub async fn send_message_to_llm(
     manager.send_message(text, image_path, response_sender).await
 }
 
-/// 为了向后兼容，保留原有的测试函数
- #[allow(dead_code)]
-pub async fn test_llm_availability() -> Result<String, Error> {
-    let manager = LLMManager::default();
-    manager.test_current_backend().await
-}
 
 
 
@@ -218,21 +206,6 @@ mod tests {
         assert!(manager.current_backend().is_some());
         
         println!("✅ LLM Manager tests passed!");
-    }
-
-    #[tokio::test]
-    async fn test_backward_compatibility() {
-        let _ = tracing_subscriber::fmt::try_init();
-        
-        // 测试向后兼容性函数
-        match test_llm_availability().await {
-            Ok(response) => {
-                println!("✅ 向后兼容测试成功: {}", response);
-            }
-            Err(e) => {
-                println!("ℹ️ 向后兼容测试失败 (可能因为没有配置 API key): {}", e);
-            }
-        }
     }
 }
 

@@ -28,18 +28,18 @@ impl Default for LLMConfig {
 }
 
 /// LLM 设置管理器
-pub struct LLMSettingsManager {
+pub struct AppLLMSettingsManager {
     config: LLMConfig,
     manager: LLMManager,
     config_path: PathBuf,
 }
 
-impl LLMSettingsManager {
+impl AppLLMSettingsManager {
     /// 创建新的设置管理器
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let config_path = Self::get_config_path()?;
         let config = Self::load_config_from_file(&config_path)?;
-        let manager = Self::create_llm_manager(&config);
+        let manager = LLMManager::from_config(&config);
 
         Ok(Self {
             config,
@@ -78,66 +78,55 @@ impl LLMSettingsManager {
         }
     }
 
-    /// 创建 LLM 管理器
-    fn create_llm_manager(config: &LLMConfig) -> LLMManager {
-        LLMManager::from_config(config)
-    }
-
     /// 获取当前配置
     pub fn get_config(&self) -> &LLMConfig {
         &self.config
     }
 
     /// 更新提供商
-    pub fn set_provider(&mut self, provider: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_provider(&mut self, provider: String) {
         self.config.provider = provider;
-        self.update_manager()?;
-        Ok(())
     }
 
     /// 更新模型
-    pub fn set_model(&mut self, model: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_model(&mut self, model: String) {
         self.config.model = model;
-        self.update_manager()?;
-        Ok(())
     }
 
     /// 更新 API Key
-    pub fn set_api_key(&mut self, api_key: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_api_key(&mut self, api_key: String) {
         self.config.api_key = if api_key.is_empty() { None } else { Some(api_key) };
-        self.update_manager()?;
-        Ok(())
     }
 
     /// 更新 Base URL
-    pub fn set_base_url(&mut self, base_url: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_base_url(&mut self, base_url: String) {
         self.config.base_url = if base_url.is_empty() { None } else { Some(base_url) };
-        self.update_manager()?;
-        Ok(())
     }
 
     /// 更新 GitHub Token
-    pub fn set_github_token(&mut self, token: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_github_token(&mut self, token: String) {
         self.config.github_token = if token.is_empty() { None } else { Some(token) };
-        self.update_manager()?;
-        Ok(())
     }
 
     /// 更新流式设置
-    pub fn set_streaming(&mut self, enable: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_streaming(&mut self, enable: bool) {
         self.config.enable_streaming = enable;
-        Ok(())
     }
 
-    /// 更新管理器配置
+    /// 更新管理器配置（内部使用）
     fn update_manager(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.manager = LLMManager::from_config(&self.config);
         Ok(())
     }
 
     /// 测试连接
-    pub async fn test_connection(&self) -> Result<String, String> {
+    pub async fn test_connection(&mut self) -> Result<String, String> {
         tracing::info!("[llm_settings] 开始测试连接...");
+        
+        // 确保管理器使用最新配置
+        if let Err(e) = self.update_manager() {
+            return Err(format!("更新管理器失败: {}", e));
+        }
         
         match self.manager.test_current_backend().await {
             Ok(response) => {
@@ -158,7 +147,10 @@ impl LLMSettingsManager {
     }
 
     /// 保存配置到文件
-    pub fn save_config(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_config(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // 保存前确保管理器配置是最新的
+        self.update_manager()?;
+        
         let content = serde_json::to_string_pretty(&self.config)?;
         fs::write(&self.config_path, content)?;
         tracing::info!("[llm_settings] 配置已保存到: {:?}", self.config_path);
@@ -171,24 +163,6 @@ impl LLMSettingsManager {
         self.update_manager()?;
         tracing::info!("[llm_settings] 配置已重新加载");
         Ok(())
-    }
-
-    /// 获取支持的模型列表
-    #[allow(dead_code)]
-    pub fn get_supported_models(&self, provider: &str) -> Vec<String> {
-        match provider {
-            "GPT" => vec![
-                "gpt-4o".to_string(),
-                "gpt-4o-mini".to_string(),
-                "gpt-3.5-turbo".to_string(),
-            ],
-            "GitHub" => vec![
-                "gpt-4o".to_string(),
-                "gpt-4o-mini".to_string(),
-                "gpt-3.5-turbo".to_string(),
-            ],
-            _ => vec!["gpt-4o".to_string()],
-        }
     }
 
     /// 获取配置摘要
@@ -213,7 +187,7 @@ mod tests {
         let _ = tracing_subscriber::fmt::try_init();
         
         // 创建设置管理器
-        let mut manager = match LLMSettingsManager::new() {
+        let mut manager = match AppLLMSettingsManager::new() {
             Ok(m) => m,
             Err(e) => {
                 println!("创建设置管理器失败: {}", e);
@@ -222,13 +196,13 @@ mod tests {
         };
 
         // 测试配置更新
-        manager.set_provider("GitHub".to_string()).unwrap();
+        manager.set_provider("GitHub".to_string());
         assert_eq!(manager.get_config().provider, "GitHub");
 
-        manager.set_model("gpt-3.5-turbo".to_string()).unwrap();
+        manager.set_model("gpt-3.5-turbo".to_string());
         assert_eq!(manager.get_config().model, "gpt-3.5-turbo");
 
-        manager.set_streaming(false).unwrap();
+        manager.set_streaming(false);
         assert_eq!(manager.get_config().enable_streaming, false);
 
         // 测试保存和重新加载
