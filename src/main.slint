@@ -1,5 +1,5 @@
 import { CheckBox, StandardListView } from "std-widgets.slint";
-import { SingleChoice,Page} from "ui/pages/pages.slint";
+import { SingleChoice,Page,WanXingTianKong,Reading } from "ui/pages/pages.slint";
 import { Page } from "ui/pages/page.slint";
 import { SideBar } from "ui/side_bar.slint";
 import { LLMSettings } from "ui/pages/setting.slint";
@@ -78,7 +78,7 @@ export component App inherits Window {
             ];
         }
 
-        if(side-bar.current-item == 0): Page {
+        if(side-bar.current-item == 0): SingleChoice {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
@@ -104,8 +104,32 @@ export component App inherits Window {
                 root.copy_reply_and_addcode();
             }
         }
-        // if(side-bar.current-item == 2) : TableViewPage {}
-        // if(side-bar.current-item == 3) : TextEditPage {}
+        if(side-bar.current-item == 2) : WanXingTianKong {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            send_message => {
+                root.send_message();
+            }
+            copy_reply_and_addcode => {
+                root.copy_reply_and_addcode();
+            }
+        }
+        if(side-bar.current-item == 3) : Reading {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            send_message => {
+                root.send_message();
+            }
+            copy_reply_and_addcode => {
+                root.copy_reply_and_addcode();
+            }
+        }
         // if(side-bar.current-item == 4) : EasingsPage {}
         // if(side-bar.current-item == 5) : AboutPage {}
         if(side-bar.current-item == 6): LLMSettings {

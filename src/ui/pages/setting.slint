@@ -99,8 +99,22 @@ export component LLMSettings inherits Rectangle {
                         
                         model-combo := ComboBox {
                             model: root.current-provider == "GPT" 
-                                ? ["gpt-4o", "gpt-4o-mini", "claude-sonnet-3.5","claude-sonnet-4","gemini-2.5-pro"] 
-                                : ["gpt-4o", "gpt-4.1", "gpt-5","o3-mini","claude-sonnet-3.5","claude-sonnet-4","gemini-2.5-pro"];
+                                ? ["gpt-4o", "gpt-4o-mini","gemini-2.5-pro"] 
+                                : [
+                                    "gpt-4o", 
+                                    "gpt-4o-mini",
+                                    "Meta-Llama-3.1-405B-Instruct",
+                                    "Meta-Llama-3.1-70B-Instruct",
+                                    "Meta-Llama-3.1-8B-Instruct",
+                                    "Meta-Llama-3-70B-Instruct",
+                                    "Meta-Llama-3-8B-Instruct",
+                                    "Mistral-large-2407",
+                                    "Mistral-Nemo",
+                                    "Mistral-small",
+                                    "AI21-Jamba-Instruct",
+                                    "Cohere-embed-v3-english",
+                                    "Cohere-embed-v3-multilingual"
+                                ];
                             current-value: root.current-model;
                             selected => {
                                 root.current-model = self.current-value;
@@ -218,22 +232,10 @@ export component LLMSettings inherits Rectangle {
                             color: #666666;
                             wrap: word-wrap;
                         }
-
-                        HorizontalBox {
-                            alignment: start;
-                            spacing: 5px;
-                            
-                            Text {
-                                text: "获取 Token:";
+                        Text {
+                                text: "获取 Token: https://github.com/settings/tokens";
                                 font-size: 12px;
                                 color: #666666;
-                            }
-                            
-                            Text {
-                                text: "https://github.com/settings/tokens";
-                                font-size: 12px;
-                                color: #0366d6;
-                            }
                         }
                     }
                 }

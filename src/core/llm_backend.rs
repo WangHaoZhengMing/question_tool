@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::fmt::Display;
+use std::path::{ Path};
 use std::sync::mpsc;
 
 use async_llm::Error;
@@ -16,7 +17,14 @@ pub enum LLMProvider {
     GPT,
     GitHub,
 }
-
+impl Display for LLMProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LLMProvider::GPT => write!(f, "GPT"),
+            LLMProvider::GitHub => write!(f, "GitHub"),
+        }
+    }
+}
 /// 通用 LLM 后端 trait
 #[async_trait::async_trait]
 pub trait LLMBackend: Send + Sync {
@@ -140,6 +148,7 @@ impl LLMManager {
         response_sender: mpsc::Sender<LLMResponse>,
     ) -> Result<(), Error> {
         if let Some(backend) = self.current_backend() {
+            tracing::info!("Sending message to LLM backend: {}", backend.provider());
             backend.send_message(text, image_path, response_sender).await
         } else {
             Err(Error::Stream("No backend available".into()))

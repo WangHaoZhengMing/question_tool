@@ -29,7 +29,7 @@ impl FromStr for QuestionType {
         match input {
             "单选题" => Ok(QuestionType::SingleChoice),
             "阅读理解" => Ok(QuestionType::Reading),
-            "完形填空" => Ok(QuestionType::ClozeTest),
+            "完型填空" => Ok(QuestionType::ClozeTest),
             _ => Err(()),
         }
     }
@@ -113,7 +113,9 @@ var newContent = `
     /// 完形填空提示词
     fn get_cloze_test_prompt() -> String {
         String::from(
-            r#"// 完形填空模板，段落两端对齐，首行缩进，字体字号不变
+            r#"
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
+// 完形填空模板，段落两端对齐，首行缩进，字体字号不变
 // 在OCR时，注意把试卷中的不相关内容去掉，避免干扰
 // 字体和字大小要和此模板一致，不要改变
 
@@ -187,33 +189,885 @@ impl AdditionalCodeGenerator {
     /// 单选题附加代码
     fn get_single_choice_code(&self) -> String {
         String::from(
-            r#"// 单选题交互逻辑
-function initSingleChoiceQuestions() {
-    // 题目渲染逻辑
-    console.log("单选题初始化完成");
-}"#,
+            r#" 
+/**
+ * 等待指定毫秒数
+ * @param {number} ms - 等待的时间（毫秒）
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+//MARK： 使用XPath查找包含指定文本的元素
+function clickBlankFillingElement(type) {
+    // XPath表达式：查找class包含"tag"且包含指定文本的元素
+    var xpath = "//*[contains(@class,'tag') and contains(text(),'" + type + "')]";
+
+    // 执行XPath查询
+    var result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+    );
+
+    // 如果找到元素，点击它
+    if (result.singleNodeValue) {
+        result.singleNodeValue.click();
+        console.log(`成功点击 ${type} 标签元素`);
+        return true;
+    } else {
+        console.log(`未找到包含 '${type}' 文本的标签元素`);
+        return false;
+    }
+}
+//
+// 完整的操作流程 - 设置为单选题
+async function operateElements() {
+    console.log("开始设置题型为单选题...");
+
+    // 1. 点击下拉框 - 查找当前选中的题型
+    var selectDiv = document.querySelector('div[title]');
+    if (!selectDiv) {
+        // 备用选择器
+        selectDiv = document.querySelector('.ant-select-selection-selected-value');
+        if (!selectDiv) {
+            selectDiv = document.querySelector('.ant-select-selection__rendered');
+        }
+    }
+
+    if (selectDiv) {
+        selectDiv.click();
+        console.log("✅ 已点击题型下拉框");
+
+        // 2. 等待下拉菜单出现，然后选择单选题
+        await new Promise(resolve => {
+            setTimeout(function () {
+                var options = document.querySelectorAll('li.ant-select-dropdown-menu-item');
+                for (var i = 0; i < options.length; i++) {
+                    if (options[i].textContent.trim() === '单选题') {
+                        options[i].click();
+                        console.log("✅ 已选择单选题");
+                        break;
+                    }
+                }
+                resolve();
+            }, 200);
+        });
+        // 2.5. 点击“选择题”标签
+        await delay(200);
+        const tagSpans = document.querySelectorAll('span.tag');
+        for (let span of tagSpans) {
+            if (span.textContent.trim() === '选择题') {
+            span.click();
+            console.log('✅ 已点击“选择题”标签');
+            break;
+            }
+        }
+        await delay(200);
+        // 3. 等待一下确保选择生效
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        console.log("✅ 题型设置完成");
+        return true;
+    } else {
+        console.error("❌ 未找到题型下拉框");
+        return false;
+    }
+}
+/**
+ * 封装好的填充函数，用于向可编辑的 div 填入内容
+ * @param {HTMLElement} container - 题目总容器
+ * @param {string} placeholder - 通过 placeholder 文本来精确定位输入框
+ * @param {string} text - 要填充的 HTML 内容
+ */
+async function fillEditableDiv(container, placeholder, text) {
+    // 多种选择器策略
+    let inputElement = null;
+    
+    // 策略1: 精确匹配 placeholder
+    let selector = `[contenteditable="true"][placeholder="${placeholder}"]`;
+    inputElement = container.querySelector(selector);
+    
+    if (!inputElement) {
+        // 策略2: 查找包含 placeholder 文本的元素
+        selector = `[contenteditable="true"]`;
+        const editableElements = container.querySelectorAll(selector);
+        for (let element of editableElements) {
+            if (element.getAttribute('placeholder') && element.getAttribute('placeholder').includes(placeholder)) {
+                inputElement = element;
+                break;
+            }
+        }
+    }
+    
+    if (!inputElement) {
+        // 策略3: 根据 placeholder 类型使用不同的备用选择器
+        if (placeholder.includes('题干')) {
+            // 题干的备用选择器
+            inputElement = container.querySelector('.ckeditor_div[contenteditable="true"]') ||
+                          container.querySelector('[contenteditable="true"].ckeditor_div') ||
+                          container.querySelector('.question-stem [contenteditable="true"]');
+        } else if (placeholder.includes('解析')) {
+            // 解析的备用选择器
+            inputElement = container.querySelector('.analysis [contenteditable="true"]') ||
+                          container.querySelector('.explanation [contenteditable="true"]') ||
+                          Array.from(container.querySelectorAll('[contenteditable="true"]')).find(el => 
+                              el.getAttribute('placeholder') && el.getAttribute('placeholder').includes('解析')
+                          );
+        }
+    }
+    
+    if (!inputElement) {
+        // 策略4: 全局查找（作为最后手段）
+        console.log(`🔍 在全局范围内查找 "${placeholder}" 的输入框...`);
+        selector = `[contenteditable="true"][placeholder*="${placeholder}"]`;
+        inputElement = document.querySelector(selector);
+    }
+
+    if (inputElement) {
+        console.log(`🎯 找到输入框:`, inputElement);
+        inputElement.classList.remove('placeholder'); // 移除占位符样式
+        inputElement.innerHTML = `<p>${text}</p>`;    // 填入内容
+        triggerEvents(inputElement);                   // 触发事件
+        console.log(`✅ 成功填充 "${placeholder}"`);
+    } else {
+        console.warn(`⚠️ 填充 "${placeholder}" 失败: 找不到对应的输入框`);
+        // 调试信息：列出容器内所有可编辑元素
+        const allEditableElements = container.querySelectorAll('[contenteditable="true"]');
+        console.log(`📋 容器内找到 ${allEditableElements.length} 个可编辑元素:`);
+        allEditableElements.forEach((el, index) => {
+            console.log(`  ${index + 1}. placeholder: "${el.getAttribute('placeholder')}", class: "${el.className}"`);
+        });
+    }
+    await delay(100); // 每个填充操作后短暂延时，增加稳定性
+}
+// 填充题目内容的函数
+async function fillQuestionContent(questionData) {
+    console.log('开始填充题目内容');
+
+    // 等待页面加载
+    await delay(800);
+
+    // 找到当前活动的题目表单容器
+    let currentForm = document.querySelector('.question-item.active');
+    if (!currentForm) {
+        // 备用选择器：查找最后一个题目容器或当前编辑的题目
+        const allQuestions = document.querySelectorAll('.question-item');
+        if (allQuestions.length > 0) {
+            currentForm = allQuestions[allQuestions.length - 1];
+        }
+    }
+    if (!currentForm) {
+        // 最后的备用选择器：查找包含编辑表单的容器
+        currentForm = document.querySelector('.question-form') || 
+                     document.querySelector('.question-content') ||
+                     document.querySelector('.form-container') ||
+                     document;
+    }
+
+    console.log('🎯 当前题目表单容器:', currentForm);
+    console.log('📊 容器类名:', currentForm.className);
+    
+    // 调试：列出容器内所有可编辑元素
+    const allEditableInContainer = currentForm.querySelectorAll('[contenteditable="true"]');
+    console.log(`📋 容器内共找到 ${allEditableInContainer.length} 个可编辑元素`);
+
+    // 步骤 3: 填充题干
+    await fillEditableDiv(currentForm, '请录入题干', questionData.stem);
+
+    // 等待内容保存
+    await delay(300);
+
+    // 步骤 4: 填充选项
+    var optionInputs = currentForm.querySelectorAll('.options .ckeditor_div[contenteditable="true"]');
+    if (optionInputs.length === 0) {
+        // 备用选择器
+        optionInputs = document.querySelectorAll('.options .ckeditor_div[contenteditable="true"]');
+    }
+
+    for (let i = 0; i < questionData.options.length; i++) {
+        if (optionInputs[i]) {
+            optionInputs[i].classList.remove('placeholder');
+            optionInputs[i].innerHTML = questionData.options[i];
+            triggerEvents(optionInputs[i]);
+            console.log(`✅ 成功设置选项 ${String.fromCharCode(65 + i)}: ${questionData.options[i]}`);
+        } else {
+            console.warn(`⚠️ 找不到选项 ${String.fromCharCode(65 + i)} 的输入框`);
+        }
+        await delay(100); // 每个操作间短暂延时
+    }
+
+    // 步骤 5: 设置答案 (根据索引)
+    var radioButtons = currentForm.querySelectorAll('.ant-radio-group input[type="radio"]');
+    if (radioButtons.length === 0) {
+        radioButtons = document.querySelectorAll('.ant-radio-group input[type="radio"]');
+    }
+
+    if (radioButtons[questionData.answer]) {
+        radioButtons[questionData.answer].click();
+        console.log(`✅ 成功设置答案: ${String.fromCharCode(65 + questionData.answer)}`);
+    } else {
+        console.warn(`⚠️ 找不到索引为 ${questionData.answer} 的答案单选按钮`);
+    }
+    await delay(100);
+
+    // 步骤 6: 填充解析
+    await fillEditableDiv(currentForm, '请录入解析', questionData.analysis);
+
+    // 点击保存按钮
+    var saveButton = document.querySelector('button.ant-btn.ant-btn-primary[data-v-4c71fb2d]');
+    if (!saveButton) {
+        // 备用选择器
+        saveButton = document.querySelector('button.ant-btn.ant-btn-primary');
+        if (!saveButton) {
+            saveButton = Array.from(document.querySelectorAll('button')).find(btn =>
+                btn.textContent.includes('保存') || btn.textContent.includes('保 存')
+            );
+        }
+    }
+
+    if (saveButton) {
+        saveButton.click();
+        console.log('✅ 已点击保存按钮');
+        await delay(1000);
+    } else {
+        console.error('❌ 未找到保存按钮');
+    }
+
+    // 等待一下让内容保存
+    await delay(500);
+    console.log('题目内容填充完成');
+}
+
+
+/**
+ * 触发一个元素上的多个事件，以模拟真实用户操作，确保框架能接收到变更
+ * @param {HTMLElement} element - 目标元素
+ */
+function triggerEvents(element) {
+    element.focus();
+    // 触发一系列事件，确保兼容各种前端框架
+    ['input', 'change', 'keyup', 'blur'].forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+}
+
+/**
+ * 模拟键盘输入到可编辑元素
+ * @param {HTMLElement} element - 目标元素
+ * @param {string} content - 要输入的内容（支持HTML）
+ */
+async function simulateContentInput(element, content) {
+    if (!element) {
+        console.warn('⚠️ 目标元素不存在，跳过填充');
+        return;
+    }
+
+    element.focus();
+
+    // 触发开始编辑事件
+    element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+
+    // 设置内容
+    element.innerHTML = content;
+
+    // 触发一系列输入相关事件
+    const events = ['input', 'textInput', 'keyup', 'change'];
+    events.forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+
+    // 触发结束编辑事件
+    element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    console.log("✅ 模拟键盘输入完成");
+
+    // 短暂延时确保内容稳定
+    await new Promise(resolve => setTimeout(resolve, 100));
+}
+
+/**
+ * 触发元素事件，确保页面能识别到内容变化（优化版本）
+ * @param {HTMLElement} element - 目标元素
+ */
+function triggerInputEvents(element) {
+    if (!element) return;
+
+    element.focus();
+    ['input', 'change', 'keyup', 'blur'].forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+}
+
+// 定位并点击最后一题的函数
+async function locateAndClickLastQuestion() {
+    // 查找所有题目容器
+    var allQuestions = document.querySelectorAll('.question-item');
+
+    if (allQuestions.length > 0) {
+        // 获取最后一个题目
+        var lastQuestion = allQuestions[allQuestions.length - 1];
+
+        // 滚动到最后一题
+        lastQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // 点击最后一题
+        lastQuestion.click();
+
+        console.log('已点击最后一题，ID:', lastQuestion.id);
+
+        // 等待一下让页面响应
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        return true;
+    } else {
+        console.log('未找到任何题目');
+        return false;
+    }
+}
+
+// 添加新题目的函数
+async function addNewQuestion() {
+    // 查找"添加题目"按钮 - 多种选择器
+    var addButton = document.querySelectorAll('.add-operate-item')[1];
+
+    if (!addButton) {
+        // 备用选择器1：通过文本内容查找
+        addButton = Array.from(document.querySelectorAll('button, .add-operate-item')).find(btn =>
+            btn.textContent && btn.textContent.includes('添加题目')
+        );
+    }
+
+    if (!addButton) {
+        // 备用选择器2：通过类名查找
+        addButton = document.querySelector('.add-operate-item');
+    }
+
+    if (addButton) {
+        // 点击添加题目按钮
+        addButton.click();
+        console.log('✅ 已点击添加题目按钮');
+
+        // 等待新题目创建完成
+        await delay(1500); // 增加等待时间，确保题目完全创建
+        return true;
+    } else {
+        console.warn('⚠️ 未找到添加题目按钮，可能已在编辑状态');
+        return false;
+    }
+}
+
+// 主执行函数
+async function main() {
+    try {
+        console.log(`🚀 脚本启动，准备处理 ${Questions.length} 道单选题...`);
+
+        for (let i = 0; i < Questions.length; i++) {
+            const questionData = Questions[i];
+            console.log(`\n--- [ ${i + 1} / ${Questions.length} ] --- 开始处理第 ${i + 1} 个题目`);
+
+            // 1. 先定位并点击最后一题
+            const locateSuccess = await locateAndClickLastQuestion();
+            if (!locateSuccess) {
+                console.error(`第 ${i + 1} 个题目：无法定位到最后一题`);
+                continue;
+            }
+
+            // 2. 添加新题目（如果不是第一题）
+            const addSuccess = await addNewQuestion();
+            if (!addSuccess) {
+                console.error(`第 ${i + 1} 个题目：无法添加新题目`);
+                continue;
+            }
+
+            // 3. 再次定位到新创建的最后一题
+            await locateAndClickLastQuestion();
+
+
+            // 4. 设置题型为单选题
+            const typeSetSuccess = await operateElements();
+            if (!typeSetSuccess) {
+                console.warn(`第 ${i + 1} 个题目：题型设置可能失败，继续尝试填充内容`);
+            }
+
+
+
+
+
+            // // 获取所有选项关闭按钮（X）并删除第一个
+            // const optionCloseButtons = document.querySelectorAll('.options-close');
+            // if (optionCloseButtons.length > 0) {
+            //     optionCloseButtons[0].click();
+            //     console.log('✅ 已点击第一个选项关闭按钮');
+            //     await delay(300);
+            // } else {
+            //     console.warn('⚠️ 未找到选项关闭按钮');
+            // }
+
+
+            // 5. 填充题目内容
+            await fillQuestionContent(questionData);
+
+            console.log(`✅ 第 ${i + 1} 个题目处理完成`);
+
+            // 每个题目之间稍作停顿
+            await delay(1000);
+        }
+
+        console.log('\n🎉🎉🎉 所有题目处理完成！');
+    } catch (error) {
+        console.error('💥 执行过程中出现错误:', error);
+        console.error('请检查页面结构或刷新页面后重试。');
+    }
+}
+
+// 执行主函数
+main();
+
+    "#,
         )
     }
 
     /// 阅读理解附加代码  
     fn get_reading_code(&self) -> String {
         String::from(
-            r#"// 阅读理解填空逻辑
-function initReadingQuestions() {
-    // 填空题交互逻辑
-    console.log("阅读理解初始化完成");
-}"#,
+            r#"
+
+//MARK： 使用XPath查找包含"阅读理解"文本的元素
+function clickReadingElement() {
+    // XPath表达式：查找class包含"tag"且包含"阅读理解"文本的元素
+    var xpath = "//*[contains(@class,'tag') and contains(text(),'阅读理解')]";
+
+    // 执行XPath查询
+    var result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+    );
+
+    // 如果找到元素，点击它
+    if (result.singleNodeValue) {
+        result.singleNodeValue.click();
+        console.log("成功点击阅读理解元素");
+        return true;
+    } else {
+        console.log("未找到包含'阅读理解'文本的元素");
+        return false;
+    }
+}
+
+// 完整的操作流程
+async function operateElements() {
+    // 1. 点击下拉框
+    var selectDiv = document.querySelector('div[title="单选题"]');
+    if (selectDiv) {
+        selectDiv.click();
+
+        // 2. 选择复合题 - 使用 Promise 替代 setTimeout
+        await new Promise(resolve => {
+            setTimeout(function () {
+                var options = document.querySelectorAll('li.ant-select-dropdown-menu-item');
+                for (var i = 0; i < options.length; i++) {
+                    if (options[i].textContent.trim() === '复合题') {
+                        options[i].click();
+                        break;
+                    }
+                }
+                resolve();
+            }, 100);
+        });
+
+        // 3. 使用XPath点击阅读理解标签 - 使用 Promise 替代 setTimeout
+        await new Promise(resolve => {
+            setTimeout(function () {
+                clickReadingElement();
+                resolve();
+            }, 200);
+        });
+    }
+}
+
+
+
+/**
+ * 模拟键盘输入到可编辑元素
+ * @param {HTMLElement} element - 目标元素
+ * @param {string} content - 要输入的内容（支持HTML）
+ */
+async function simulateContentInput(element, content) {
+    element.focus();
+
+    // 触发开始编辑事件
+    element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+
+    // 设置内容
+    element.innerHTML = content;
+
+    // 触发一系列输入相关事件
+    const events = ['input', 'textInput', 'keyup', 'change'];
+    events.forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+
+    // 触发结束编辑事件
+    element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    console.log("✅ 模拟键盘输入完成");
+}
+
+/**
+ * 使用模拟键盘输入设置初始内容
+ */
+async function setInitialContent() {
+    console.log("📝 开始模拟键盘输入设置初始内容...");
+
+    const showBoxElement = document.querySelector('.showBox');
+    const ckeditorElement = document.querySelector('.ckeditor_div.cke_editable');
+
+    if (showBoxElement) {
+        await simulateContentInput(showBoxElement, newContent);
+    }
+
+    if (ckeditorElement) {
+        await simulateContentInput(ckeditorElement, newContent);
+    }
+
+    await delay(500); // 等待内容稳定
+}
+
+/**
+ * 等待指定毫秒数
+ * @param {number} ms - 等待的时间（毫秒）
+ */
+var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * 触发一个元素上的多个事件，以模拟真实用户操作，确保框架能接收到变更
+ * @param {HTMLElement} element - 目标元素
+ */
+function triggerEvents(element) {
+    element.focus();
+    // 触发一系列事件，确保兼容各种前端框架
+    ['input', 'change', 'keyup', 'blur'].forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+}
+
+/**
+ * 封装好的填充函数，用于向可编辑的 div 填入内容
+ * @param {HTMLElement} container - 题目总容器
+ * @param {string} placeholder - 通过 placeholder 文本来精确定位输入框
+ * @param {string} text - 要填充的 HTML 内容
+ */
+async function fillEditableDiv(container, placeholder, text) {
+    const selector = `[contenteditable="true"][placeholder="${placeholder}"]`;
+    const inputElement = container.querySelector(selector);
+
+    if (inputElement) {
+        inputElement.classList.remove('placeholder'); // 移除占位符样式
+        inputElement.innerHTML = `<p>${text}</p>`;    // 填入内容
+        triggerEvents(inputElement);                   // 触发事件
+        console.log(`✅ 成功填充 "${placeholder}"`);
+    } else {
+        console.warn(`⚠️ 填充 "${placeholder}" 失败: 找不到对应的输入框`);
+    }
+    await delay(100); // 每个填充操作后短暂延时，增加稳定性
+}
+
+
+// ----------- 3. 主执行函数 (简单直接的核心流程) -----------
+
+async function processAllQuestions() {
+
+    console.log(`Switch to 复合题/阅读理解 mode...`);
+    await operateElements();
+    console.log(`🚀 脚本启动，插入题目文章`);
+    document.querySelector('.showBox').innerHTML = newContent;
+    document.querySelector('.ckeditor_div.cke_editable').innerHTML = newContent;
+
+    console.log(`🚀 脚本启动，准备处理 ${Questions.length} 道题目...`);
+    try {
+        // 先用模拟键盘输入设置初始内容
+        await setInitialContent();
+
+        for (const [index, questionData] of Questions.entries()) {
+            console.log(`\n--- [ ${index + 1} / ${Questions.length} ] --- 开始处理新题目...`);
+
+            // 步骤 1: 点击 "添加小题" -> 选择 "单选题" -> 点击 "确定"
+            const addSubQuestionButton = Array.from(document.querySelectorAll('button.add-fuhuxiao-btn span')).find(el => el.textContent.trim() === '添加小题');
+            if (!addSubQuestionButton) throw new Error("找不到 '添加小题' 按钮！");
+            addSubQuestionButton.parentElement.click();
+            await delay(500);
+
+            const singleChoiceOption = Array.from(document.querySelectorAll('.add-fuhuxiao-content .form-value-span')).find(el => el.textContent.trim() === '单选题');
+            if (!singleChoiceOption) throw new Error("在弹窗中找不到 '单选题' 选项！");
+            singleChoiceOption.click();
+
+            const confirmButton = Array.from(document.querySelectorAll('.add-fuhuxiao-footer button span')).find(el => el.textContent.trim() === '确 定');
+            if (!confirmButton) throw new Error("在弹窗中找不到 '确定' 按钮！");
+            confirmButton.parentElement.click();
+
+            console.log("🌀 已创建新小题，等待表单完全加载...");
+            await delay(1500); // **关键延时**: 等待新题目表单渲染
+
+            // 步骤 2: 定位到最新添加的题目容器 (总是最后一个)
+            const allForms = document.querySelectorAll('.fuhe-content-wrap');
+            const currentForm = allForms[allForms.length - 1];
+            if (!currentForm) throw new Error("找不到新创建的小题表单容器！");
+
+            // 步骤 3: 填充题干
+            await fillEditableDiv(currentForm, '请录入小题题干', questionData.stem);
+
+            // 步骤 4: 填充选项
+            var optionInputs = currentForm.querySelectorAll('.options .ckeditor_div[contenteditable="true"]');
+            for (let i = 0; i < questionData.options.length; i++) {
+                if (optionInputs[i]) {
+                    optionInputs[i].classList.remove('placeholder');
+                    optionInputs[i].innerHTML = questionData.options[i];
+                    triggerEvents(optionInputs[i]);
+                    console.log(`✅ 成功设置选项 ${String.fromCharCode(65 + i)}: ${questionData.options[i]}`);
+                } else {
+                    console.warn(`⚠️ 找不到选项 ${String.fromCharCode(65 + i)} 的输入框`);
+                }
+                await delay(100); // 每个操作间短暂延时
+            }
+
+            // 步骤 5: 设置答案 (根据索引)
+            var radioButtons = currentForm.querySelectorAll('.ant-radio-group input[type="radio"]');
+            if (radioButtons[questionData.answer]) {
+                radioButtons[questionData.answer].click();
+                console.log(`✅ 成功设置答案: ${String.fromCharCode(65 + questionData.answer)}`);
+            } else {
+                console.warn(`⚠️ 找不到索引为 ${questionData.answer} 的答案单选按钮`);
+            }
+            await delay(100);
+
+            // 步骤 6: 填充解析
+            await fillEditableDiv(currentForm, '请录入解析', questionData.analysis);
+
+            console.log(`👍 第 ${index + 1} 题处理完成！`);
+        }
+
+        console.log("\n🎉🎉🎉 所有题目均已成功处理！");
+
+    } catch (error) {
+        console.error("💥 脚本执行过程中发生严重错误:", error);
+        console.error("请检查页面结构或刷新页面后重试。");
+    }
+}
+
+// 启动脚本
+processAllQuestions();"#,
         )
     }
 
     /// 完形填空附加代码
     fn get_cloze_test_code(&self) -> String {
         String::from(
-            r#"// 完形填空交互逻辑
-function initClozeTestQuestions() {
-    // 完形填空逻辑
-    console.log("完形填空初始化完成");
-}"#,
+            r#"/**
+ * 模拟键盘输入到可编辑元素
+ * @param {HTMLElement} element - 目标元素
+ * @param {string} content - 要输入的内容（支持HTML）
+ */
+async function simulateContentInput(element, content) {
+    element.focus();
+
+    // 触发开始编辑事件
+    element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+
+    // 设置内容
+    element.innerHTML = content;
+
+    // 触发一系列输入相关事件
+    const events = ['input', 'textInput', 'keyup', 'change'];
+    events.forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+
+    // 触发结束编辑事件
+    element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    console.log("✅ 模拟键盘输入完成");
+}
+
+/**
+ * 使用模拟键盘输入设置初始内容
+ */
+async function setInitialContent() {
+    console.log("📝 开始模拟键盘输入设置初始内容...");
+
+    const showBoxElement = document.querySelector('.showBox');
+    const ckeditorElement = document.querySelector('.ckeditor_div.cke_editable');
+
+    if (showBoxElement) {
+        await simulateContentInput(showBoxElement, newContent);
+    }
+
+    if (ckeditorElement) {
+        await simulateContentInput(ckeditorElement, newContent);
+    }
+
+    await delay(500); // 等待内容稳定
+}
+
+/**
+ * 等待指定毫秒数
+ * @param {number} ms - 等待的时间（毫秒）
+ */
+var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * 触发一个元素上的多个事件，以模拟真实用户操作，确保框架能接收到变更
+ * @param {HTMLElement} element - 目标元素
+ */
+function triggerEvents(element) {
+    element.focus();
+    // 触发一系列事件，确保兼容各种前端框架
+    ['input', 'change', 'keyup', 'blur'].forEach(eventType => {
+        element.dispatchEvent(new Event(eventType, { bubbles: true, cancelable: true }));
+    });
+}
+
+/**
+ * 封装好的填充函数，用于向可编辑的 div 填入内容
+ * @param {HTMLElement} container - 题目总容器
+ * @param {string} placeholder - 通过 placeholder 文本来精确定位输入框
+ * @param {string} text - 要填充的 HTML 内容
+ */
+async function fillEditableDiv(container, placeholder, text) {
+    const selector = `[contenteditable="true"][placeholder="${placeholder}"]`;
+    const inputElement = container.querySelector(selector);
+
+    if (inputElement) {
+        inputElement.classList.remove('placeholder'); // 移除占位符样式
+        inputElement.innerHTML = `<p>${text}</p>`;    // 填入内容
+        triggerEvents(inputElement);                   // 触发事件
+        console.log(`✅ 成功填充 "${placeholder}"`);
+    } else {
+        console.warn(`⚠️ 填充 "${placeholder}" 失败: 找不到对应的输入框`);
+    }
+    await delay(100); // 每个填充操作后短暂延时，增加稳定性
+}
+
+// ----------- 完形填空题目配置功能 -----------
+
+/**
+ * 配置单个完形填空题目
+ * @param {number} questionIndex - 题目索引
+ * @param {Object} questionData - 题目数据
+ */
+async function configureQuestion(questionIndex, questionData) {
+    console.log(`\n--- [ ${questionIndex + 1} / ${Questions.length} ] --- 开始配置题目...`);
+
+    try {
+        // 步骤 1: 点击对应的空格标签
+        const blankTabs = document.querySelectorAll('.blank-name');
+        if (!blankTabs[questionIndex]) {
+            throw new Error(`找不到第${questionIndex + 1}题的标签`);
+        }
+
+        blankTabs[questionIndex].click();
+        await delay(500); // 等待标签切换
+
+        // 步骤 2: 找到当前显示的配置区域
+        const activeConfig = document.querySelector('.blank-config-item:not([style*="display: none"])');
+        if (!activeConfig) {
+            throw new Error(`找不到第${questionIndex + 1}题的配置区域`);
+        }
+
+        // 步骤 3: 填充选项A、B、C、D
+        console.log(`正在配置第${questionIndex + 1}题的选项...`);
+        const optionInputs = activeConfig.querySelectorAll('.options .ckeditor_div[contenteditable="true"]');
+
+        for (let i = 0; i < questionData.options.length && i < optionInputs.length; i++) {
+            if (optionInputs[i]) {
+                optionInputs[i].classList.remove('placeholder');
+                optionInputs[i].innerHTML = questionData.options[i];
+                triggerEvents(optionInputs[i]);
+                console.log(`✅ 成功设置选项 ${String.fromCharCode(65 + i)}: ${questionData.options[i]}`);
+            }
+            await delay(100);
+        }
+
+        // 步骤 4: 设置答案
+        console.log(`设置答案: ${String.fromCharCode(65 + questionData.answer)}`);
+        const radioButtons = activeConfig.querySelectorAll('.ant-radio-group input[type="radio"]');
+        if (radioButtons[questionData.answer]) {
+            radioButtons[questionData.answer].click();
+            console.log(`✅ 成功设置答案: ${String.fromCharCode(65 + questionData.answer)}`);
+        } else {
+            console.warn(`⚠️ 找不到索引为 ${questionData.answer} 的答案单选按钮`);
+        }
+        await delay(100);
+
+        // 步骤 5: 填充解析
+        console.log(`开始输入解析...`);
+        let explanationInput = activeConfig.querySelector('[placeholder="请录入解析"][contenteditable="true"]');
+
+        if (!explanationInput) {
+            explanationInput = activeConfig.querySelector('.ckeditor_div[placeholder="请录入解析"]');
+        }
+
+        if (explanationInput) {
+            explanationInput.classList.remove('placeholder');
+            explanationInput.innerHTML = questionData.analysis;
+            triggerEvents(explanationInput);
+            console.log(`✅ 成功填充解析`);
+        } else {
+            console.warn(`⚠️ 解析输入框未找到`);
+        }
+
+        console.log(`👍 第 ${questionIndex + 1} 题配置完成！`);
+
+    } catch (error) {
+        console.error(`💥 配置第${questionIndex + 1}题时发生错误:`, error);
+    }
+}
+
+// ----------- 主执行函数 -----------
+
+/**
+ * 处理所有完形填空题目
+ */
+async function processAllQuestions() {
+    console.log(`🚀 完形填空配置脚本启动，准备处理 ${Questions.length} 道题目...`);
+
+    try {
+        // 步骤 1: 设置文章内容
+        console.log("📝 设置完形填空文章内容...");
+        await setInitialContent();
+
+        // 步骤 2: 逐个配置题目
+        for (const [index, questionData] of Questions.entries()) {
+            await configureQuestion(index, questionData);
+            await delay(500); // 题目间延时
+        }
+
+        console.log("\n🎉🎉🎉 所有题目均已成功配置！");
+
+    } catch (error) {
+        console.error("💥 脚本执行过程中发生严重错误:", error);
+        console.error("请检查页面结构或刷新页面后重试。");
+    }
+}
+
+// 启动脚本
+processAllQuestions();
+
+// 导出函数供手动调用
+console.log("🎉 完形填空一键配置脚本已加载！");
+console.log("脚本功能：1. 文章内容设置 -> 2. 题目选项配置 -> 3. 答案设置 -> 4. 解析输入");
+console.log("可用函数：");
+console.log("- processAllQuestions()：重新执行完整配置");
+console.log("- configureQuestion(index, data)：配置单个题目");
+console.log("- setInitialContent()：仅设置文章内容");
+
+// 挂载到window对象
+window.processAllQuestions = processAllQuestions;
+window.configureQuestion = configureQuestion;
+window.setInitialContent = setInitialContent;"#,
         )
     }
 }
@@ -236,7 +1090,7 @@ pub struct Question {
     /// 附加代码（可选）
     pub additional_code: String,
 }
- #[allow(dead_code)]
+#[allow(dead_code)]
 impl Question {
     pub fn set_stem(&mut self, stem: String) {
         self.stem = stem;

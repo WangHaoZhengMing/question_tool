@@ -66,9 +66,10 @@ impl GPTBackend {
             match self.image_to_base64(path) {
                 Ok(base64) => {
                     tracing::info!("[gpt_backend] Image converted to base64 successfully");
+                    let data_url = format!("data:image/png;base64,{}", base64);
                     vec![
                         ChatMessage::system(""),
-                        ChatMessage::user_image_with_text(text, base64.as_str()),
+                        ChatMessage::user_image_with_text(text, data_url.as_str()),
                     ]
                 }
                 Err(e) => {

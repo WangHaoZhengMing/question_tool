@@ -1,6 +1,6 @@
 use super::AppState;
 use crate::App;
-use crate::core::llm_backend::{LLMResponse,send_message_to_llm};
+use crate::core::llm_backend::LLMResponse;
 use crate::core::question_type::{AdditionalCodeGenerator, Question, QuestionType};
 use slint::ComponentHandle;
 use std::str::FromStr;
@@ -27,10 +27,12 @@ impl EventHandlers {
     fn setup_send_message_callback(&self, app: &App) {
         let app_weak = app.as_weak();
         let current_image_path = self.app_state.current_image_path.clone();
+        let llm_settings = self.app_state.llm_settings.clone();
 
         app.on_send_message(move || {
             let app_handle = app_weak.clone();
             let image_path_handle = current_image_path.clone();
+            let llm_settings_handle = llm_settings.clone();
             tracing::info!("[event_handlers] Send message triggered");
 
             // 获取当前文本
@@ -68,13 +70,17 @@ impl EventHandlers {
                     text,
                     image_path,
                 );
-                Self::handle_llm_request(app_handle, question);
+                Self::handle_llm_request(app_handle, question, llm_settings_handle);
             }
         });
     }
 
     /// 处理 LLM 请求
-    fn handle_llm_request(app_handle: slint::Weak<App>, mut question: Question) {
+    fn handle_llm_request(
+        app_handle: slint::Weak<App>,
+        mut question: Question,
+        llm_settings: Arc<std::sync::Mutex<crate::app::AppLLMSettingsManager>>,
+    ) {
         // 创建响应通道
         tracing::info!("[event_handlers] Preparing to send LLM request");
         let (response_sender, response_receiver) = mpsc::channel::<LLMResponse>();
@@ -83,8 +89,17 @@ impl EventHandlers {
         let text_for_llm = question.prompt_stem();
         let image_path = question.img_path.clone();
         tokio::spawn(async move {
-            let result =
-                send_message_to_llm(text_for_llm, image_path.as_deref(), response_sender).await;
+            // 从设置中获取当前的 LLM manager
+            let manager = if let Ok(settings) = llm_settings.lock() {
+                crate::core::llm_backend::LLMManager::from_config(settings.get_config())
+            } else {
+                tracing::error!("[event_handlers] Failed to lock LLM settings, using default");
+                crate::core::llm_backend::LLMManager::default()
+            };
+
+            let result = manager
+                .send_message(text_for_llm, image_path.as_deref(), response_sender)
+                .await;
 
             if let Err(e) = result {
                 tracing::error!("[event_handlers] LLM request failed: {}", e);
@@ -95,24 +110,31 @@ impl EventHandlers {
         let app_for_response = app_handle.clone();
         std::thread::spawn(move || {
             while let Ok(response) = response_receiver.recv() {
-                tracing::trace!("[event_handlers] Received LLM response chunk, length: {}", response.content.len());
-                
+                tracing::trace!(
+                    "[event_handlers] Received LLM response chunk, length: {}",
+                    response.content.len()
+                );
+
                 // 使用slint的invoke_from_event_loop来确保UI更新在主线程中执行
                 let content = response.content.clone();
                 let is_complete = response.is_complete;
                 let app_weak = app_for_response.clone();
-                
+
                 slint::invoke_from_event_loop(move || {
                     if let Some(app) = app_weak.upgrade() {
-                        tracing::debug!("[event_handlers] Updating UI with response length: {}", content.len());
+                        tracing::debug!(
+                            "[event_handlers] Updating UI with response length: {}",
+                            content.len()
+                        );
                         app.set_model_reply(content.into());
-                        
+
                         if is_complete {
                             app.set_is_streaming(false);
                             tracing::info!("[event_handlers] LLM response completed, UI updated");
                         }
                     }
-                }).ok();
+                })
+                .ok();
 
                 if is_complete {
                     question.set_model_reply(response.content.into());
@@ -132,10 +154,8 @@ impl EventHandlers {
                 let reply = app.get_model_reply().to_string();
                 if !reply.trim().is_empty() {
                     let additional_code = AdditionalCodeGenerator::new(
-                        QuestionType::from_str(
-                            app.get_question_type().as_str()
-                        )
-                        .expect("wrong question type, please check again!"),
+                        QuestionType::from_str(app.get_question_type().as_str())
+                            .expect("wrong question type, please check again!"),
                     )
                     .get_code();
                     Self::copy_to_clipboard(&(reply + &additional_code));

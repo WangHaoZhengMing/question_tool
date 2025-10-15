@@ -18,3 +18,5 @@ function initSingleChoiceQuestions() {
     // 题目渲染逻辑
     console.log("单选题初始化完成");
 }
+
+
