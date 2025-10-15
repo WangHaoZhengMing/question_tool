@@ -65,9 +65,11 @@ impl GitHubBackend {
             match self.image_to_base64(path) {
                 Ok(base64) => {
                     tracing::debug!("[github_backend] Image converted to base64 successfully");
+                    // GitHub Models API 需要 data URL 格式: data:image/png;base64,<base64_string>
+                    let data_url = format!("data:image/png;base64,{}", base64);
                     vec![
                         ChatMessage::system("You are GitHub Copilot, a helpful AI assistant for analyzing questions and images."),
-                        ChatMessage::user_image_with_text(text, base64.as_str()),
+                        ChatMessage::user_image_with_text(text, data_url.as_str()),
                     ]
                 }
                 Err(e) => {
@@ -466,6 +468,81 @@ mod tests {
             Err(e) => {
                 println!("✅ 正确处理了缺少 token 的情况: {}", e);
                 assert!(e.to_string().contains("GitHub token not available"));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_github_backend_send_message_with_image() {
+        setup_test_environment();
+        let _ = tracing_subscriber::fmt::try_init();
+        
+        let backend = GitHubBackend::default();
+        let (sender, receiver) = mpsc::channel();
+        
+        // 使用项目中的图标作为测试图片
+        let image_path = Path::new("icon/icon.png");
+        
+        // 检查图片文件是否存在
+        if !image_path.exists() {
+            println!("⚠️ 测试图片不存在，跳过图片测试: {}", image_path.display());
+            return;
+        }
+        
+        let test_message = "Please describe what you see in this image briefly.".to_string();
+        
+        println!("📸 发送带图片的消息测试，图片路径: {}", image_path.display());
+        
+        // 启动异步任务发送消息（包含图片）
+        let send_task = tokio::spawn(async move {
+            backend.send_message(test_message, Some(image_path), sender).await
+        });
+        
+        // 收集响应
+        let mut responses = Vec::new();
+        let mut final_content = String::new();
+        
+        // 设置超时以避免测试无限等待
+        let timeout_duration = std::time::Duration::from_secs(30);
+        let start_time = std::time::Instant::now();
+        
+        while start_time.elapsed() < timeout_duration {
+            match receiver.try_recv() {
+                Ok(response) => {
+                    responses.push(response.clone());
+                    final_content = response.content.clone();
+                    
+                    if response.is_complete {
+                        break;
+                    }
+                }
+                Err(mpsc::TryRecvError::Empty) => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    break;
+                }
+            }
+        }
+        
+        // 等待发送任务完成
+        match send_task.await {
+            Ok(Ok(())) => {
+                println!("✅ GitHub 图片消息发送成功!");
+                println!("📝 最终响应长度: {}", final_content.len());
+                println!("📊 总共收到 {} 个响应片段", responses.len());
+                
+                if !final_content.is_empty() && !final_content.starts_with("Error:") {
+                    println!("📄 响应内容预览: {}...", 
+                        final_content.chars().take(150).collect::<String>());
+                }
+            }
+            Ok(Err(e)) => {
+                println!("ℹ️ GitHub 图片请求失败 (可能因为没有配置 GITHUB_TOKEN): {}", e);
+                eprintln!("GitHub send message with image test failed (this might be expected if no GITHUB_TOKEN is configured): {}", e);
+            }
+            Err(e) => {
+                println!("❌ 任务执行失败: {}", e);
             }
         }
     }

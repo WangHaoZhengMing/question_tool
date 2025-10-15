@@ -15,7 +15,6 @@ pub struct LLMResponse {
 pub enum LLMProvider {
     GPT,
     GitHub,
-    // 未来可以添加更多提供商
 }
 
 /// 通用 LLM 后端 trait

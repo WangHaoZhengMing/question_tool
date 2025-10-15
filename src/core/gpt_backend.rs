@@ -59,17 +59,15 @@ impl GPTBackend {
     fn build_messages(&self, text: &str, image_path: Option<&Path>) -> Vec<ChatMessage> {
         if let Some(path) = image_path {
             // 如果有图片，转换为 base64
-            tracing::debug!(
+            tracing::info!(
                 "[gpt_backend] Converting image to base64: {}",
                 path.display()
             );
             match self.image_to_base64(path) {
                 Ok(base64) => {
-                    tracing::debug!("[gpt_backend] Image converted to base64 successfully");
+                    tracing::info!("[gpt_backend] Image converted to base64 successfully");
                     vec![
-                        ChatMessage::system(
-                            "You are a helpful assistant for analyzing questions and images.",
-                        ),
+                        ChatMessage::system(""),
                         ChatMessage::user_image_with_text(text, base64.as_str()),
                     ]
                 }
@@ -85,10 +83,10 @@ impl GPTBackend {
             }
         } else {
             // 只有文本
-            tracing::debug!("[gpt_backend] Text-only request");
+            tracing::info!("[gpt_backend] Text-only request");
             vec![
                 ChatMessage::system(
-                    "You are a helpful assistant for analyzing questions and images.",
+                    "",
                 ),
                 ChatMessage::user(text),
             ]
