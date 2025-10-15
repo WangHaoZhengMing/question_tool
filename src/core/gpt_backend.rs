@@ -21,7 +21,7 @@ impl Default for GPTBackend {
         Self {
             model: "gpt-4o".to_string(),
             api_key: None,
-            base_url: None,
+            base_url: Some("https://api.tu-zi.com/v1".to_string()),
         }
     }
 }
@@ -357,8 +357,16 @@ mod tests {
         if let Ok(base_url) = std::env::var("OPENAI_BASE_URL") {
             println!("   Base URL: {}", base_url);
         }
-        if let Ok(_) = std::env::var("OPENAI_API_KEY") {
-            println!("   API Key: [已配置]");
+        if let Ok(api_key) = std::env::var("OPENAI_API_KEY") {
+            // 只显示 API key 的前几个和后几个字符以保护安全
+            let masked_key = if api_key.len() > 12 {
+                format!("{}...{}", &api_key[..8], &api_key[api_key.len()-4..])
+            } else {
+                "[已配置]".to_string()
+            };
+            println!("   API Key: {}", masked_key);
+        } else {
+            println!("   API Key: [未配置]");
         }
     }
 
