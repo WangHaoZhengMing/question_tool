@@ -1,5 +1,5 @@
 import { CheckBox, StandardListView } from "std-widgets.slint";
-import { SingleChoice,Page,WanXingTianKong,Reading } from "ui/pages/pages.slint";
+import { SingleChoice,Page,WanXingTianKong,Reading,ListeningSingle,ListeningCompound,MutiTiankong } from "ui/pages/pages.slint";
 import { Page } from "ui/pages/page.slint";
 import { SideBar } from "ui/side_bar.slint";
 import { LLMSettings } from "ui/pages/setting.slint";
@@ -73,14 +73,14 @@ export component App inherits Window {
         side-bar := SideBar {
             title: @tr("题目配置工具");
             model: [
-            @tr("Menu" => "听力理解"), @tr("Menu" => "单项选择"), @tr("Menu" => "完型填空"), 
-            @tr("Menu" => "阅读理解"), @tr("Menu" => "语篇填空"), @tr("Menu" => "填空题"),
+            @tr("Menu" => "单项听力理解"), @tr("Menu" => "单项选择"), @tr("Menu" => "完型填空"), 
+            @tr("Menu" => "阅读理解"), @tr("Menu" => "多个填空"), @tr("Menu" => "填空题"),
                 @tr("Menu" => "LLM 设置"), @tr
                ("Menu" => "About")
             ];
         }
 
-        if(side-bar.current-item == 0): SingleChoice {
+        if(side-bar.current-item == 0): ListeningSingle {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
@@ -156,8 +156,44 @@ export component App inherits Window {
                 root.clear_image();
             }
         }
-        // if(side-bar.current-item == 4) : EasingsPage {}
-        // if(side-bar.current-item == 5) : AboutPage {}
+        if(side-bar.current-item == 4) : MutiTiankong {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            send_message => {
+                root.send_message();
+            }
+            copy_reply_and_addcode => {
+                root.copy_reply_and_addcode();
+            }
+            stop_response => {
+                root.stop_response();
+            }
+            clear_image => {
+                root.clear_image();
+            }
+        }
+        if(side-bar.current-item == 5) : ListeningCompound {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            send_message => {
+                root.send_message();
+            }
+            copy_reply_and_addcode => {
+                root.copy_reply_and_addcode();
+            }
+            stop_response => {
+                root.stop_response();
+            }
+            clear_image => {
+                root.clear_image();
+            }
+        }
         if(side-bar.current-item == 6): LLMSettings {
             current-provider <=> root.llm-provider;
             current-model <=> root.llm-model;

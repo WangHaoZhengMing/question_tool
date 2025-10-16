@@ -28,6 +28,9 @@ uuid = { version = "1.18.1", features = ["v4"] }
 [build-dependencies]
 slint-build = "1.13.1"
 
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
+
 
 
 
