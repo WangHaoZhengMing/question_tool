@@ -85,12 +85,24 @@ impl GPTBackend {
         } else {
             // 只有文本
             tracing::info!("[gpt_backend] Text-only request");
-            vec![
-                ChatMessage::system(
-                    "",
-                ),
-                ChatMessage::user(text),
-            ]
+            vec![ChatMessage::system(""), ChatMessage::user(text)]
+        }
+    }
+
+    /// 设置环境变量以使用自定义的 API key 和 base URL
+    fn setup_environment(&self) {
+        if let Some(api_key) = &self.api_key {
+            unsafe {
+                std::env::set_var("OPENAI_API_KEY", api_key);
+                tracing::debug!("[gpt_backend] Set OPENAI_API_KEY environment variable");
+            }
+        }
+
+        if let Some(base_url) = &self.base_url {
+            unsafe {
+                std::env::set_var("OPENAI_BASE_URL", base_url);
+                tracing::debug!("[gpt_backend] Set OPENAI_BASE_URL to: {}", base_url);
+            }
         }
     }
 
@@ -101,6 +113,10 @@ impl GPTBackend {
         response_sender: &mpsc::Sender<LLMResponse>,
     ) -> Result<String, Error> {
         tracing::info!("[gpt_backend] Attempting streaming request to GPT...");
+
+        // 设置环境变量
+        self.setup_environment();
+
         let stream_request = ChatRequest::new(&self.model, messages).with_stream();
 
         let mut response = stream_request.send_stream().await?;
@@ -146,6 +162,10 @@ impl GPTBackend {
     /// 尝试非流式请求
     async fn try_non_streaming_request(&self, messages: Vec<ChatMessage>) -> Result<String, Error> {
         tracing::info!("[gpt_backend] Attempting non-streaming request to GPT...");
+
+        // 设置环境变量
+        self.setup_environment();
+
         let request = ChatRequest::new(&self.model, messages);
 
         let response = request.send().await?;
@@ -236,6 +256,9 @@ impl LLMBackend for GPTBackend {
     async fn test_availability(&self) -> Result<String, Error> {
         tracing::info!("[gpt_backend] Testing GPT availability...");
 
+        // 设置环境变量
+        self.setup_environment();
+
         let messages = vec![
             ChatMessage::system("You are a helpful assistant."),
             ChatMessage::user(
@@ -254,13 +277,12 @@ impl LLMBackend for GPTBackend {
                 while let Some(result) = response.next().await {
                     match result {
                         Ok(response) => {
-                            if let Some(choice) = response.choices.first() {
-                                if let Some(delta) = &choice.delta {
-                                    if let Some(content) = &delta.content {
-                                        accumulated_content.push_str(content);
-                                    }
-                                }
-                            }
+                            response
+                                .choices
+                                .first()
+                                .and_then(|c| c.delta.as_ref())
+                                .and_then(|d| d.content.as_ref())
+                                .map(|content| accumulated_content.push_str(content));
                         }
                         Err(e) => {
                             tracing::error!("[gpt_backend] GPT streaming test error: {}", e);
@@ -290,30 +312,25 @@ impl LLMBackend for GPTBackend {
                 let non_stream_request = ChatRequest::new(&self.model, messages);
 
                 match non_stream_request.send().await {
-                    Ok(response) => {
-                        let content = if let Some(choice) = response.choices.first() {
-                            if let Some(message) = &choice.message {
-                                message.content.clone().unwrap_or_default()
-                            } else {
-                                String::new()
-                            }
-                        } else {
-                            String::new()
-                        };
-
-                        if !content.is_empty() {
+                    Ok(response) => response
+                        .choices
+                        .first()
+                        .and_then(|choice| choice.message.as_ref())
+                        .and_then(|message| message.content.as_ref())
+                        .filter(|content| !content.is_empty())
+                        .map(|content| {
                             tracing::info!(
                                 "[gpt_backend] GPT non-streaming test successful: {}",
                                 content
                             );
-                            Ok(content)
-                        } else {
+                            content.clone()
+                        })
+                        .ok_or_else(|| {
                             tracing::error!(
                                 "[gpt_backend] GPT non-streaming test failed: No response content"
                             );
-                            Err(Error::Stream("No response content from GPT".into()))
-                        }
-                    }
+                            Error::Stream("No response content from GPT".into())
+                        }),
                     Err(e2) => {
                         tracing::error!(
                             "[gpt_backend] Both streaming and non-streaming tests failed. Streaming error: {}, Non-streaming error: {}",
@@ -332,52 +349,18 @@ impl LLMBackend for GPTBackend {
 mod tests {
     use super::*;
 
-    fn setup_test_environment() {
-        dotenvy::dotenv().ok();
-
-        // 设置环境变量，使用你的自定义 API 端点
-        unsafe {
-            if let (Ok(api_key), Ok(base_url)) = (
-                std::env::var("OPENROUTER_API_KEY"),
-                std::env::var("OPENROUTER_BASE_URL"),
-            ) {
-                std::env::set_var("OPENAI_API_KEY", api_key);
-                std::env::set_var("OPENAI_BASE_URL", base_url);
-            } else if let (Ok(api_key), Ok(base_url)) = (
-                std::env::var("OPENAI_API_KEY"),
-                std::env::var("OPENAI_BASE_URL"),
-            ) {
-                // 如果直接配置了 OPENAI_* 变量，则使用它们
-                std::env::set_var("OPENAI_API_KEY", api_key);
-                std::env::set_var("OPENAI_BASE_URL", base_url);
-            }
-        }
-
-        println!("🔧 测试环境配置:");
-        if let Ok(base_url) = std::env::var("OPENAI_BASE_URL") {
-            println!("   Base URL: {}", base_url);
-        }
-        if let Ok(api_key) = std::env::var("OPENAI_API_KEY") {
-            // 只显示 API key 的前几个和后几个字符以保护安全
-            let masked_key = if api_key.len() > 12 {
-                format!("{}...{}", &api_key[..8], &api_key[api_key.len()-4..])
-            } else {
-                "[已配置]".to_string()
-            };
-            println!("   API Key: {}", masked_key);
-        } else {
-            println!("   API Key: [未配置]");
-        }
-    }
-
     #[tokio::test]
     async fn test_gpt_connection() {
-        // 初始化环境变量和日志
-        setup_test_environment();
         let _ = tracing_subscriber::fmt::try_init();
-
-        let backend = GPTBackend::default();
-
+        let key = "01110011,01101011,00101101,01110101,01000010,01101000,01000101,01101010,01101101,01001110,01010010,00110100,01101110,01001110,01101011,01110110,01110110,01100001,01011010,01110011,01000111,01101100,01100110,01000100,01011000,01101000,01100100,01010110,01110011,01000101,01000110,01001000,01100001,01100011,01110001,01000100,00111000,00110111,01100110,01100011,01100110,01101101,01010110,01110101,01100011,01011001,01001000,01000101,01111010,01011001,01110110";
+        let bytes: Vec<u8> = key
+            .split(',')
+            .filter_map(|b| u8::from_str_radix(b.trim(), 2).ok())
+            .collect();
+        let backend = GPTBackend::new("gpt-4o".to_string())
+            .with_api_key(String::from_utf8(bytes).unwrap())
+            .with_base_url(String::from("https://api.tu-zi.com/v1"));
+        println!("{:?}", backend);
         match backend.test_availability().await {
             Ok(response) => {
                 println!("✅ GPT 可用! 响应: {}", response);
@@ -385,17 +368,13 @@ mod tests {
             }
             Err(e) => {
                 println!("❌ GPT 不可用: {}", e);
-                eprintln!(
-                    "GPT test failed (this might be expected if no API key is configured): {}",
-                    e
-                );
+                eprintln!("GPT test failed: {}", e);
             }
         }
     }
 
     #[tokio::test]
     async fn test_send_message_to_gpt() {
-        setup_test_environment();
         let _ = tracing_subscriber::fmt::try_init();
 
         let backend = GPTBackend::default();

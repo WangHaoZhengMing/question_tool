@@ -13,7 +13,7 @@ use super::llm_backend::{LLMResponse, LLMBackend, LLMProvider};
 #[derive(Clone, Debug)]
 pub struct GitHubBackend {
     pub model: String,
-    pub api_key: Option<String>,
+    pub api_token: Option<String>,
     pub base_url: String,
 }
 
@@ -21,7 +21,7 @@ impl Default for GitHubBackend {
     fn default() -> Self {
         Self {
             model: "gpt-4o".to_string(),
-            api_key: std::env::var("GITHUB_TOKEN").ok(),
+            api_token: std::env::var("GITHUB_TOKEN").ok(),
             base_url: "https://models.inference.ai.azure.com".to_string(),
         }
     }
@@ -32,14 +32,14 @@ impl GitHubBackend {
     pub fn new(model: String) -> Self {
         Self {
             model,
-            api_key: std::env::var("GITHUB_TOKEN").ok(),
+            api_token: std::env::var("GITHUB_TOKEN").ok(),
             base_url: "https://models.inference.ai.azure.com".to_string(),
         }
     }
 
     /// 设置 GitHub Token
     pub fn with_api_key(mut self, api_key: String) -> Self {
-        self.api_key = Some(api_key);
+        self.api_token = Some(api_key);
         self
     }
 
@@ -91,10 +91,9 @@ impl GitHubBackend {
 
     /// 设置环境变量以使用 GitHub Models API
     fn setup_environment(&self) {
-        if let Some(api_key) = &self.api_key {
+        if let Some(api_token) = &self.api_token {
             unsafe {
-                std::env::set_var("OPENAI_API_KEY", api_key);
-                std::env::set_var("OPENAI_BASE_URL", &self.base_url);
+                std::env::set_var("GITHUB_TOKEN", api_token);
             }
         } else {
             tracing::error!("[github_backend] No GitHub token available. Please set GITHUB_TOKEN environment variable or use with_api_key()");
@@ -195,7 +194,7 @@ impl LLMBackend for GitHubBackend {
     ) -> Result<(), Error> {
         tracing::info!("[github_backend] Sending message to GitHub Models API...");
         
-        if self.api_key.is_none() {
+        if self.api_token.is_none() {
             let error_msg = "GitHub token not available. Please set GITHUB_TOKEN environment variable.".to_string();
             tracing::error!("[github_backend] {}", error_msg);
             let _ = response_sender.send(LLMResponse {
@@ -246,7 +245,7 @@ impl LLMBackend for GitHubBackend {
     async fn test_availability(&self) -> Result<String, Error> {
         tracing::info!("[github_backend] Testing GitHub Models API availability...");
         
-        if self.api_key.is_none() {
+        if self.api_token.is_none() {
             let error_msg = "GitHub token not available. Please set GITHUB_TOKEN environment variable.";
             tracing::error!("[github_backend] {}", error_msg);
             return Err(Error::Stream(error_msg.into()));
@@ -362,7 +361,7 @@ mod tests {
             .with_base_url("https://custom.api.com".to_string());
         
         assert_eq!(custom_backend.model, "gpt-3.5-turbo");
-        assert_eq!(custom_backend.api_key, Some("test_token".to_string()));
+        assert_eq!(custom_backend.api_token, Some("test_token".to_string()));
         assert_eq!(custom_backend.base_url, "https://custom.api.com");
         
         println!("✅ GitHub backend creation tests passed!");

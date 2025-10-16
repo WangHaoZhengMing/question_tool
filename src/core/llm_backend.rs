@@ -174,19 +174,6 @@ impl Default for LLMManager {
 }
 
 
-/// 为了向后兼容，保留原有的函数接口
-pub async fn send_message_to_llm(
-    text: String,
-    image_path: Option<&Path>,
-    response_sender: mpsc::Sender<LLMResponse>,
-) -> Result<(), Error> {
-    let manager = LLMManager::default();
-    manager.send_message(text, image_path, response_sender).await
-}
-
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
