@@ -4,23 +4,29 @@ use crate::core::llm_backend::LLMResponse;
 use crate::core::question_type::{AdditionalCodeGenerator, Question, QuestionType};
 use slint::ComponentHandle;
 use std::str::FromStr;
-use std::sync::{Arc, mpsc};
+use std::sync::{Arc, mpsc, atomic::{AtomicBool, Ordering}};
 
 /// UI 事件处理器
 pub struct EventHandlers {
     app_state: Arc<AppState>,
+    stop_signal: Arc<AtomicBool>,
 }
 
 impl EventHandlers {
     /// 创建新的事件处理器
     pub fn new(app_state: Arc<AppState>) -> Self {
-        Self { app_state }
+        Self { 
+            app_state,
+            stop_signal: Arc::new(AtomicBool::new(false)),
+        }
     }
 
     /// 设置所有回调函数
     pub fn setup_callbacks(&self, app: &App) {
         self.setup_send_message_callback(app);
         self.setup_copy_callback(app);
+        self.setup_stop_response_callback(app);
+        self.setup_clear_image_callback(app);
     }
 
     /// 设置发送消息回调
@@ -28,11 +34,17 @@ impl EventHandlers {
         let app_weak = app.as_weak();
         let current_image_path = self.app_state.current_image_path.clone();
         let llm_settings = self.app_state.llm_settings.clone();
+        let stop_signal = self.stop_signal.clone();
 
         app.on_send_message(move || {
             let app_handle = app_weak.clone();
             let image_path_handle = current_image_path.clone();
             let llm_settings_handle = llm_settings.clone();
+            let stop_signal_handle = stop_signal.clone();
+            
+            // 重置停止信号
+            stop_signal_handle.store(false, Ordering::Relaxed);
+            
             tracing::info!("[event_handlers] Send message triggered");
 
             // 获取当前文本
@@ -70,7 +82,7 @@ impl EventHandlers {
                     text,
                     image_path,
                 );
-                Self::handle_llm_request(app_handle, question, llm_settings_handle);
+                Self::handle_llm_request(app_handle, question, llm_settings_handle, stop_signal_handle);
             }
         });
     }
@@ -80,6 +92,7 @@ impl EventHandlers {
         app_handle: slint::Weak<App>,
         mut question: Question,
         llm_settings: Arc<std::sync::Mutex<crate::app::AppLLMSettingsManager>>,
+        stop_signal: Arc<AtomicBool>,
     ) {
         // 创建响应通道
         tracing::info!("[event_handlers] Preparing to send LLM request");
@@ -108,8 +121,16 @@ impl EventHandlers {
 
         // 在主线程中处理响应
         let app_for_response = app_handle.clone();
+        let stop_signal_for_response = stop_signal.clone();
         std::thread::spawn(move || {
             while let Ok(response) = response_receiver.recv() {
+                // 检查停止信号
+                if stop_signal_for_response.load(Ordering::Relaxed) {
+                    tracing::info!("[event_handlers] Stop signal received, stopping response");
+                    // UI 状态已在按钮点击时更新，这里只需退出循环
+                    break;
+                }
+                
                 tracing::trace!(
                     "[event_handlers] Received LLM response chunk, length: {}",
                     response.content.len()
@@ -162,6 +183,44 @@ impl EventHandlers {
                 } else {
                     tracing::debug!("[event_handlers] No reply to copy");
                 }
+            }
+        });
+    }
+
+    /// 设置停止响应回调
+    fn setup_stop_response_callback(&self, app: &App) {
+        let stop_signal = self.stop_signal.clone();
+        let app_weak = app.as_weak();
+        
+        app.on_stop_response(move || {
+            tracing::info!("[event_handlers] Stop response triggered");
+            stop_signal.store(true, Ordering::Relaxed);
+            
+            // 立即更新 UI 状态，隐藏停止按钮
+            if let Some(app) = app_weak.upgrade() {
+                app.set_is_streaming(false);
+                tracing::info!("[event_handlers] Streaming state set to false");
+            }
+        });
+    }
+
+    /// 设置清除图片回调
+    fn setup_clear_image_callback(&self, app: &App) {
+        let app_weak = app.as_weak();
+        let current_image_path = self.app_state.current_image_path.clone();
+        
+        app.on_clear_image(move || {
+            tracing::info!("[event_handlers] Clear image triggered");
+            
+            // 清除内存中的图片路径
+            if let Ok(mut path) = current_image_path.lock() {
+                *path = None;
+            }
+            
+            // 清除UI中的图片
+            if let Some(app) = app_weak.upgrade() {
+                app.set_current_image(slint::Image::default());
+                tracing::info!("[event_handlers] Image cleared successfully");
             }
         });
     }

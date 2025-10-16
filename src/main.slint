@@ -29,6 +29,8 @@ export component App inherits Window {
     in-out property <bool> llm-is-testing: false;
     callback send_message();
     callback copy_reply_and_addcode();
+    callback stop_response();
+    callback clear_image();
     
     // LLM 设置回调
     callback llm-provider-changed(string);
@@ -90,6 +92,12 @@ export component App inherits Window {
             copy_reply_and_addcode => {
                 root.copy_reply_and_addcode();
             }
+            stop_response => {
+                root.stop_response();
+            }
+            clear_image => {
+                root.clear_image();
+            }
         }
         if(side-bar.current-item == 1): SingleChoice {
             current_image: root.current_image;
@@ -102,6 +110,12 @@ export component App inherits Window {
             }
             copy_reply_and_addcode => {
                 root.copy_reply_and_addcode();
+            }
+            stop_response => {
+                root.stop_response();
+            }
+            clear_image => {
+                root.clear_image();
             }
         }
         if(side-bar.current-item == 2) : WanXingTianKong {
@@ -116,6 +130,12 @@ export component App inherits Window {
             copy_reply_and_addcode => {
                 root.copy_reply_and_addcode();
             }
+            stop_response => {
+                root.stop_response();
+            }
+            clear_image => {
+                root.clear_image();
+            }
         }
         if(side-bar.current-item == 3) : Reading {
             current_image: root.current_image;
@@ -128,6 +148,12 @@ export component App inherits Window {
             }
             copy_reply_and_addcode => {
                 root.copy_reply_and_addcode();
+            }
+            stop_response => {
+                root.stop_response();
+            }
+            clear_image => {
+                root.clear_image();
             }
         }
         // if(side-bar.current-item == 4) : EasingsPage {}

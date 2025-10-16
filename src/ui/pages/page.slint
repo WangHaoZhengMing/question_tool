@@ -17,6 +17,8 @@ export component Page inherits VerticalBox {
     in-out property <bool> is_streaming: false;
     callback send_message();
     callback copy_reply_and_addcode();
+    callback stop_response();
+    callback clear_image();
     // callback current_question_type();
     HorizontalBox {
         // 左栏：输入和图片
@@ -46,18 +48,52 @@ export component Page inherits VerticalBox {
                         width: 60px;
                         height: 30px;
                         primary: true;
+                        enabled: !root.is_streaming;
                         x: parent.width - self.width - 8px;
                         y: parent.height - self.height - 8px;
                         clicked => {
                             root.send_message();
                         }
                     }
+                    
+                    Button {
+                        text: "停止";
+                        width: 60px;
+                        height: 30px;
+                        visible: root.is_streaming;
+                        x: parent.width - self.width - 76px;
+                        y: parent.height - self.height - 8px;
+                        clicked => {
+                            root.stop_response();
+                        }
+                    }
                 }
 
-                Image {
-                    source: current_image;
-                    width: 50%;
+                Rectangle {
                     height: 300px;
+                    VerticalBox {
+                        alignment: LayoutAlignment.start;
+                        spacing: 5px;
+                        
+                        HorizontalBox {
+                            alignment: LayoutAlignment.end;
+                            visible: current_image.width > 0;
+                            Button {
+                                text: "清除图片";
+                                width: 80px;
+                                height: 28px;
+                                clicked => {
+                                    root.clear_image();
+                                }
+                            }
+                        }
+                        
+                        Image {
+                            source: current_image;
+                            width: 50%;
+                            height: parent.height - 35px;
+                        }
+                    }
                 }
             }
         }
@@ -127,6 +163,18 @@ export component Page inherits VerticalBox {
                         y: 8px;
                         clicked => {
                             root.copy_reply_and_addcode();
+                        }
+                    }
+                    
+                    Button {
+                        text: "停止";
+                        width: 50px;
+                        height: 25px;
+                        visible: root.is_streaming;
+                        x: parent.width - self.width - 66px;
+                        y: 8px;
+                        clicked => {
+                            root.stop_response();
                         }
                     }
                 }
