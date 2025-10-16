@@ -16,7 +16,7 @@ export component App inherits Window {
     in-out property <string> model_reply: "";
 
     in-out property <bool> is_streaming: false;
-    in-out property <string> question_type: side-bar.current-item == 0 ? "听力理解" : side-bar.current-item == 1 ? "单选题" : side-bar.current-item == 2 ? "完型填空" : side-bar.current-item == 3 ? "阅读理解" : side-bar.current-item == 4 ? "语篇填空" : side-bar.current-item == 5 ? "填空题" : "未知";
+    in-out property <string> question_type: side-bar.current-item == 0 ? "听力理解" : side-bar.current-item == 1 ? "单选题" : side-bar.current-item == 2 ? "完型填空" : side-bar.current-item == 3 ? "阅读理解" : side-bar.current-item == 4 ? "多个填空题" : side-bar.current-item == 5 ? "填空题" : "未知";
     
     // LLM 设置相关属性
     in-out property <string> llm-provider: "GPT";

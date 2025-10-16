@@ -75,15 +75,16 @@ impl GitHubBackend {
                 Err(e) => {
                     tracing::error!("[github_backend] Failed to convert image to base64: {}", e);
                     vec![
-                        ChatMessage::system("You are GitHub Copilot, a helpful AI assistant."),
+                        ChatMessage::system("you have to follow the follow rules"),
                         ChatMessage::user(text),
                     ]
                 }
             }
         } else {
             tracing::debug!("[github_backend] Text-only request");
+            tracing::info!("messages: {:?}", text);
             vec![
-                ChatMessage::system("You are GitHub Copilot, a helpful AI assistant."),
+                ChatMessage::system("you have to follow the follow rules"),
                 ChatMessage::user(text),
             ]
         }

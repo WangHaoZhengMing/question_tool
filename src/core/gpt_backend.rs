@@ -85,8 +85,10 @@ impl GPTBackend {
         } else {
             // 只有文本
             tracing::info!("[gpt_backend] Text-only request");
+            tracing::info!("messages: {:?}", text);
             vec![ChatMessage::system(""), ChatMessage::user(text)]
         }
+
     }
 
     /// 设置环境变量以使用自定义的 API key 和 base URL
@@ -206,6 +208,7 @@ impl LLMBackend for GPTBackend {
         response_sender: mpsc::Sender<LLMResponse>,
     ) -> Result<(), Error> {
         let messages = self.build_messages(&text, image_path);
+        tracing::info!("current model: {}", self.model);
 
         // 首先尝试流式请求
         match self
@@ -357,17 +360,17 @@ mod tests {
             .split(',')
             .filter_map(|b| u8::from_str_radix(b.trim(), 2).ok())
             .collect();
-        let backend = GPTBackend::new("gpt-4o".to_string())
+        let backend = GPTBackend::new("gemini-2.5-pro".to_string())
             .with_api_key(String::from_utf8(bytes).unwrap())
             .with_base_url(String::from("https://api.tu-zi.com/v1"));
         println!("{:?}", backend);
         match backend.test_availability().await {
             Ok(response) => {
-                println!("✅ GPT 可用! 响应: {}", response);
+                println!("GPT 可用! 响应: {}", response);
                 assert!(!response.is_empty(), "GPT response should not be empty");
             }
             Err(e) => {
-                println!("❌ GPT 不可用: {}", e);
+                println!("GPT 不可用: {}", e);
                 eprintln!("GPT test failed: {}", e);
             }
         }
