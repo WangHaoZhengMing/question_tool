@@ -102,6 +102,7 @@ var Questions = [
     fn get_reading_prompt() -> String {
         String::from(
             r#"输出模式如下：
+//正文中 中英文之间请保持空格。如grammars (语法) and
 //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 // 模板，段落两端对齐，首行缩进，字体字号不变
 // 在OCR时，注意把试卷中的不相关内容去掉，避免干扰
@@ -122,7 +123,36 @@ var newContent = `
         </span>
         Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
     </p>
-`;"#,
+`;
+
+// !!! 注意：'answer' 字段是 从0开始的数字索引 (0=A, 1=B, 2=C) !!!
+// 通用示例题目数据，适用于各类阅读理解或单选题
+var Questions = [
+    {
+        "stem": "",//这里不要带题号
+        "options": [
+            "Python",//答案中不要带有A.
+            "HTML",
+            "CSS",
+            "HTTP"
+        ],
+        "answer": 0, // 答案索引：A
+        "analysis": "Python is a programming language. HTML and CSS are markup and style sheet languages, while HTTP is a protocol."//解析要用中文。格式要分为：考点，分析，故答案为：
+    },
+    {
+        "stem": "What does 'AI' stand for?",
+        "options": [
+            "Artificial Intelligence",//原文保持一致~如果原文中每个选项有.那就在选项后面加英文句号，没有就算了。总之和原文保持一致
+
+            "Automated Input",
+            "Advanced Internet",
+            "Analog Interface"
+        ],
+        "answer": 0, // 答案索引：A
+        "analysis": "AI stands for Artificial Intelligence, which refers to the simulation of human intelligence by machines."
+    }
+];
+"#,
         )
     }
 
@@ -130,13 +160,13 @@ var newContent = `
     fn get_cloze_test_prompt() -> String {
         String::from(
             r#"
-//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
+//正文中 中英文之间请保持空格。如grammars (语法) and
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，不要带有```javascript ```。只输出代码就可以了。我不用代码块包裹
 // 完形填空模板，段落两端对齐，首行缩进，字体字号不变
 // 在OCR时，注意把试卷中的不相关内容去掉，避免干扰
 // 字体和字大小要和此模板一致，不要改变
-
+//do not 带有```javascript ```
 var newContent = `
-    <h2 style="text-align: center;">Student Aspirations</h2>
     <p style="text-align: justify; text-indent: 2em;">
         "Who would you like to change your life with if you can?" Last week, we asked many middle school students this 
         <span class="number fillblank" contenteditable="false" data-blank-id="31" 
@@ -160,29 +190,20 @@ var Questions = [
     { 
         "options": ["reason", "question", "word", "way"], 
         "answer": 1, 
-        "analysis": "考点：名词辨析。分析：根据上下文这是一个提问，所以这里应该填问题。故答案为question。" 
+        "analysis": "考点：名词辨析。分析：根据上下文这是一个提问，所以这里应该填问题。故选B。" 
     },
     { 
         "options": ["answers", "problems", "questions", "changes"], 
         "answer": 0, 
-        "analysis": "考点：名词辨析。分析：既然前面是问题，后面紧接着就是学生们的回答。故答案为answers。" 
+        "analysis": "考点：名词辨析。分析：既然前面是问题，后面紧接着就是学生们的回答。故选A。" 
     },
-    { 
-        "options": ["study", "studies", "to study", "studying"], 
-        "answer": 3, 
-        "analysis": "考点：现在分词作表语。分析：句意为她现在正在英国学习。be + doing 表示正在进行。故答案为studying。" 
-    },
-    { 
-        "options": ["work", "walk", "wish", "wash"], 
-        "answer": 2, 
-        "analysis": "考点：动词辨析。分析：我也希望参观那些地方。wish to do sth. 意为希望做某事。故答案为wish。" 
-    }
 ];"#,
         )
     }
 
     fn get_listening_single_prompt() -> String {
-        String::from(r#"
+        String::from(
+            r#"
             "请你把我给你的题目转换成如下格式的 JavaScript，格式如下：
             //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 var Questions = [
@@ -207,11 +228,13 @@ var Questions = [
         "analysis": "考点：听力原因理解。原文：W: I hear some teenagers often feel stressed. M: Yes. They are too busy with their exams. 分析：对话中男士解释青少年感到压力的原因时说“They are too busy with their exams.”（他们忙于应付考试。），这与选项A“他们有太多的考试”意思相符。故答案为：A。"
     }
 ]
-"#)
+"#,
+        )
     }
 
     fn get_listening_compound_prompt() -> String {
-        String::from(r#"
+        String::from(
+            r#"
         //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 var newContent = `
 111
@@ -241,11 +264,13 @@ var Questions = [
     }
 
 ]
-"#)
+"#,
+        )
     }
 
     fn get_muti_tiankong_prompt() -> String {
-String::from(r#"
+        String::from(
+            r#"
 //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 var Questions = [
     {
@@ -260,8 +285,15 @@ var Questions = [
         answer: ["Paris"],
         analysis: "考点：世界地理常识。分析：巴黎是法国的首都和最大城市，也是法国的政治、经济、文化中心。故答案为：Paris"
     },
+    {//如果检测到是一个文章。且一个题目里面有多个空的，用下面这种格式
+            stem:`Good morning my name is (1) <span class="underline fillblank" data-blank-id="593417796829762302" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> I am from (2) <span class="underline fillblank" data-blank-id="593417796829762303" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span>`,
+            题型类型: "填空题",
+            answer: ["John", "Canada"],
+            analysis: "1. 考点：.....。分析：根据常见的自我介绍格式，名字是John. 故答案为：John,<br>2. 分析：.......。国家是Canada。故答案为： Canada"
+    },
 ];
-"#)
+"#,
+        )
     }
 }
 
@@ -1174,7 +1206,8 @@ window.setInitialContent = setInitialContent;"#,
     }
 
     fn get_listening_compound_code(&self) -> String {
-        String::from(r#"
+        String::from(
+            r#"
 //MARK： 使用XPath查找包含"阅读理解"文本的元素
 function clickReadingElement() {
     // XPath表达式：查找class包含"tag"且包含"阅读理解"文本的元素
@@ -1402,11 +1435,13 @@ async function processAllQuestions() {
 
 // 启动脚本
 processAllQuestions();
-"#)
-}
+"#,
+        )
+    }
 
     fn get_listening_single_code(&self) -> String {
-        String::from(r#"
+        String::from(
+            r#"
 //MARK： 使用XPath查找包含指定文本的元素
 var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 function clickBlankFillingElement(type) {
@@ -1825,10 +1860,13 @@ async function main() {
 
 // 执行主函数
 main(); 
-"#)}
+"#,
+        )
+    }
 
     fn get_muti_tiankong_code(&self) -> String {
-        String::from(r#"
+        String::from(
+            r#"
 /**
  * 等待指定毫秒数
  * @param {number} ms - 等待的时间（毫秒）
@@ -2289,7 +2327,9 @@ async function main() {
 
 // 执行主函数
 main();   
-"#)}
+"#,
+        )
+    }
 }
 /// 题目结构体
 #[derive(Debug, Clone)]
