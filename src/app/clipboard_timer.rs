@@ -59,6 +59,11 @@ impl ClipboardTimer {
                             tracing::info!(
                                 "[clipboard_timer] Successfully loaded and displayed image"
                             );
+                            
+                            // 释放旧图片的内存引用
+                            app.set_current_image(slint::Image::default());
+                            
+                            // 设置新图片
                             app.set_current_image(image);
 
                             // 更新当前图片路径

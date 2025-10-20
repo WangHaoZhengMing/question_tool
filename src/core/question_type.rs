@@ -102,6 +102,7 @@ var Questions = [
     fn get_reading_prompt() -> String {
         String::from(
             r#"输出模式如下：
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 // 模板，段落两端对齐，首行缩进，字体字号不变
 // 在OCR时，注意把试卷中的不相关内容去掉，避免干扰
 // 字体和字大小要和此模板一致，不要改变
@@ -183,6 +184,7 @@ var Questions = [
     fn get_listening_single_prompt() -> String {
         String::from(r#"
             "请你把我给你的题目转换成如下格式的 JavaScript，格式如下：
+            //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 var Questions = [
     {
         "stem": "When did the dialogue most probably take place?",
@@ -210,6 +212,7 @@ var Questions = [
 
     fn get_listening_compound_prompt() -> String {
         String::from(r#"
+        //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 var newContent = `
 111
 `;
@@ -243,6 +246,7 @@ var Questions = [
 
     fn get_muti_tiankong_prompt() -> String {
 String::from(r#"
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 var Questions = [
     {
         stem: `Which of the following is a <span class="underline fillblank" data-blank-id="593417796829762300" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> language?`, //这里不要带题号.这里的data-blank-id每次不要相同

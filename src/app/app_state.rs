@@ -4,6 +4,12 @@ use crate::core::clipboard_monitor::start_clipboard_monitor;
 use slint::ComponentHandle;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use once_cell::sync::Lazy;
+
+// 全局共享的 tokio runtime，避免重复创建
+static TOKIO_RUNTIME: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+    tokio::runtime::Runtime::new().expect("Failed to create tokio runtime")
+});
 
 /// 应用全局状态管理
 pub struct AppState {
@@ -151,8 +157,7 @@ impl AppState {
 
             // 在后台线程中执行测试
             std::thread::spawn(move || {
-                let runtime = tokio::runtime::Runtime::new().unwrap();
-                let result = runtime.block_on(async {
+                let result = TOKIO_RUNTIME.block_on(async {
                     if let Ok(mut settings) = settings.lock() {
                         settings.test_connection().await
                     } else {

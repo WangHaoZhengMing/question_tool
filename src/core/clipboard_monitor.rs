@@ -9,11 +9,13 @@ pub fn start_clipboard_monitor() -> Arc<Mutex<Option<PathBuf>>> {
     
     let current_path_handle = std::sync::Arc::new(std::sync::Mutex::new(None));
     let handle_clone = current_path_handle.clone();
+    let last_saved_file: Arc<Mutex<Option<PathBuf>>> = Arc::new(Mutex::new(None));
     
     std::thread::spawn(move || {
         tracing::debug!("[clipboard_monitor] Thread spawned");
         let mut last_clipboard_hash = 0u64;
         let mut check_count = 0u32;
+        let last_file_clone = last_saved_file.clone();
         
         loop {
             std::thread::sleep(std::time::Duration::from_millis(2000));
@@ -80,6 +82,19 @@ pub fn start_clipboard_monitor() -> Arc<Mutex<Option<PathBuf>>> {
             if image_hash != last_clipboard_hash {
                 tracing::info!("[clipboard_monitor] New image detected!");
                 last_clipboard_hash = image_hash;
+                
+                // 删除旧的临时文件以释放磁盘空间和内存
+                if let Ok(mut last_file) = last_file_clone.lock() {
+                    if let Some(old_path) = last_file.take() {
+                        if old_path.exists() {
+                            match std::fs::remove_file(&old_path) {
+                                Ok(_) => tracing::debug!("[clipboard_monitor] Deleted old temp file: {}", old_path.display()),
+                                Err(e) => tracing::warn!("[clipboard_monitor] Failed to delete old temp file: {}", e),
+                            }
+                        }
+                    }
+                }
+                
                 // 保存图片
                 let temp_dir = std::env::temp_dir();
                 let timestamp = std::time::SystemTime::now()
@@ -88,6 +103,12 @@ pub fn start_clipboard_monitor() -> Arc<Mutex<Option<PathBuf>>> {
                     .as_secs();
                 let file_path = temp_dir.join(format!("slint_paste_{}.png", timestamp));
                 tracing::debug!("[clipboard_monitor] Saving image to: {}", file_path.to_string_lossy());
+                
+                // 保存新文件路径到 last_saved_file
+                if let Ok(mut last_file) = last_file_clone.lock() {
+                    *last_file = Some(file_path.clone());
+                }
+                
                 // 更新共享路径句柄
                 if let Ok(mut handle_path) = handle_clone.lock() {
                     *handle_path = Some(file_path.clone());
