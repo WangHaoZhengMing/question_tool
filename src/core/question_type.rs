@@ -16,6 +16,8 @@ pub enum QuestionType {
     ListeningCompound,
     ///　多个填空
     MutiTiankong,
+    /// 完形填空note
+    ClozeTestNote,
 }
 
 impl QuestionType {
@@ -28,6 +30,7 @@ impl QuestionType {
             QuestionType::ListeningSingle => "单项听力理解",
             QuestionType::ListeningCompound => "听力复合题",
             QuestionType::MutiTiankong => "多个填空题",
+            QuestionType::ClozeTestNote => "完形填空note",
         }
     }
 }
@@ -42,6 +45,7 @@ impl FromStr for QuestionType {
             "单项听力理解" => Ok(QuestionType::ListeningSingle),
             "听力复合题" => Ok(QuestionType::ListeningCompound),
             "多个填空题" => Ok(QuestionType::MutiTiankong),
+            "完形填空note" => Ok(QuestionType::ClozeTestNote),
             _ => Err(()),
         }
     }
@@ -67,6 +71,7 @@ impl PromptTemplate {
             QuestionType::ListeningSingle => Self::get_listening_single_prompt(),
             QuestionType::ListeningCompound => Self::get_listening_compound_prompt(),
             QuestionType::MutiTiankong => Self::get_muti_tiankong_prompt(),
+            QuestionType::ClozeTestNote => Self::get_cloze_test_note_prompt(),
         }
     }
 
@@ -295,6 +300,47 @@ var Questions = [
 "#,
         )
     }
+
+    fn get_cloze_test_note_prompt() -> String {
+        String::from(
+            r#"
+// 好。现在我会给你一个题目 。请给出每个题目的tag。你要重点看这个空的考点。而不是把整个句子的考点都总结上。输出格式
+//最后给我的时候要把第一个题目的tag放在最后一行。如原来的数组是 [[1],[2],[3]]，你要输出 [[2],[3],[1]]。明白吗？
+var questionTags = [
+  ["完形：代词"],
+  ["完形：介词"],
+  ["完形：动词/动词短语"],
+  ["完形：介词"],
+  ["完形：动词/动词短语"],
+  ["完形：名词"],
+  ["完形：名词"],
+  ["完形：名词"],
+  ["完形：名词"],
+  ["完形：名词"]
+]
+ 【完形：名词
+
+    完形：冠词
+
+    完形：动词/动词短语
+
+    完形：形容词
+
+    完形：副词
+
+    完形：代词
+
+    完形：介词
+
+    完形：数词
+
+    完形：特殊疑问词
+
+    完形：连词
+    】
+            "#,
+        )
+    }
 }
 
 /// 附加代码生成器
@@ -317,6 +363,7 @@ impl AdditionalCodeGenerator {
             QuestionType::ListeningSingle => self.get_listening_single_code(),
             QuestionType::ListeningCompound => self.get_listening_compound_code(),
             QuestionType::MutiTiankong => self.get_muti_tiankong_code(),
+            QuestionType::ClozeTestNote => self.get_cloze_test_note_code(),
         }
     }
 
@@ -2328,6 +2375,173 @@ async function main() {
 // 执行主函数
 main();   
 "#,
+        )
+    }
+
+    fn get_cloze_test_note_code(&self) -> String {
+        String::from(
+            r#"
+
+// 辅助函数：等待指定时间
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 辅助函数：设置原生值
+function setNativeValue(element, value) {
+  const { set } = Object.getOwnPropertyDescriptor(element, 'value') || {};
+  const prototype = Object.getPrototypeOf(element);
+  const { set: prototypeSet } = Object.getOwnPropertyDescriptor(prototype, 'value') || {};
+
+  if (prototypeSet && set !== prototypeSet) {
+    prototypeSet.call(element, value);
+  } else if (set) {
+    set.call(element, value);
+  } else {
+    throw new Error("无法设置值");
+  }
+}
+
+// 点击人工选项的async函数
+async function clickArtificialRadio() {
+  const radio = document.querySelector('span.ant-radio-button input[value="artificial"]');
+
+  if (radio) {
+    // 点击外层 span
+    radio.parentElement.click();
+    console.log("已点击人工选项");
+    await delay(1000); // 等待1秒让界面更新
+  } else {
+    console.error("没找到对应的 radio button");
+    throw new Error("没找到对应的 radio button");
+  }
+}
+
+// 执行搜索的async函数
+async function doSearch(keyword) {
+  const input = document.querySelector('.ant-input');
+  const btn = document.querySelector('.ant-input-search-button');
+
+  if (!input || !btn) {
+    console.error("没找到 Search 组件");
+    throw new Error("没找到 Search 组件");
+  }
+
+  // 设置 input 值 (React 能感知到)
+  setNativeValue(input, keyword);
+
+  // 派发 input 事件
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+
+  // 模拟点击搜索按钮
+  btn.click();
+
+  console.log(`已搜索关键词: ${keyword}`);
+  await delay(6000); // 等待搜索结果加载
+}
+
+// 点击高亮加粗元素的async函数（只点击第一个）
+async function clickAllHighlightedBold() {
+  const els = document.querySelectorAll('span[style]');
+  const targetEls = [];
+
+  els.forEach(el => {
+    const style = el.style;
+    // 条件：颜色 + 加粗 + 有文本
+    if (
+      style.color === "rgb(255, 85, 0)" &&
+      style.fontWeight === "bold" &&
+      el.innerText.trim() !== ""
+    ) {
+      targetEls.push(el);
+    }
+  });
+
+  if (targetEls.length === 0) {
+    console.error("没找到符合条件的元素");
+    return;
+  }
+
+  // 只点击第一个找到的元素
+  const firstEl = targetEls[0];
+  console.group(`点击第一个匹配元素 (共找到 ${targetEls.length} 个)`);
+  console.log("innerText:", firstEl.innerText);
+  console.log("outerHTML:", firstEl.outerHTML);
+  console.log("完整元素对象:", firstEl);
+  console.groupEnd();
+
+  // 点击第一个元素
+  firstEl.click();
+  await delay(300);
+}
+
+// 处理单个题目的async函数
+async function processMenuItem(el, idx, tags) {
+  console.log(`点击第 ${idx + 1} 个题目: ${el.innerText.trim()}`);
+  el.click();
+  await delay(1000); // 等待题目加载
+
+  if (tags && tags.length > 0) {
+    console.log(`第 ${idx + 1} 个题目的标签:`, tags);
+
+    // 为每个标签执行搜索
+    for (let j = 0; j < tags.length; j++) {
+      const tag = tags[j];
+      console.log(`搜索标签 ${j + 1}/${tags.length}: ${tag}`);
+      await doSearch(tag);
+
+      // 点击高亮元素
+      await clickAllHighlightedBold();
+
+      await delay(1000); // 每个标签处理完后等待
+    }
+  } else {
+    console.warn(`第 ${idx + 1} 个题目没有提供标签，跳过搜索`);
+  }
+
+  await delay(1000); // 处理完一个题目后等待
+}
+
+// 主要的async函数
+async function main(questionTags = []) {
+  try {
+    // 第一步：点击人工选项
+    await clickArtificialRadio();
+
+    // 第二步：获取所有题目并按顺序处理
+    const items = document.querySelectorAll('.menu-btn_container .menu-btn');
+
+    if (items.length === 0) {
+      console.error("没找到任何题目");
+      return;
+    }
+
+    console.log(`找到 ${items.length} 个题目，开始按顺序处理...`);
+
+    // 检查标签数组长度是否匹配题目数量
+    if (questionTags.length > 0 && questionTags.length !== items.length) {
+      console.warn(`标签数组长度 (${questionTags.length}) 与题目数量 (${items.length}) 不匹配`);
+    }
+
+    // 按顺序处理每个题目
+    for (let i = 0; i < items.length; i++) {
+      const tags = questionTags[i] || []; // 获取当前题目的标签，如果没有则为空数组
+      await processMenuItem(items[i], i, tags);
+    }
+
+    console.log("所有题目处理完成！");
+
+  } catch (error) {
+    console.error("执行过程中出现错误:", error);
+  }
+}
+
+
+
+
+main(questionTags);
+
+            "#,
         )
     }
 }
