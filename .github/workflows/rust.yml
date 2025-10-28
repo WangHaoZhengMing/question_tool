@@ -1,6 +1,7 @@
 name: Build & Release (Rust Multi-platform)
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"    # 只有打 tag 时触发，例如 v1.0.0
