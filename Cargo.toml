@@ -1,8 +1,8 @@
 [package]
 name = "question_tool"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
-build = "build.rs"
+# build = "build.rs"
 
 [dependencies]
 arboard = "3.6.1"
@@ -15,16 +15,16 @@ image = { version = "0.25.8", default-features = false, features = ["png"] }
 once_cell = "1.21.3"
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
-slint = { version = "1.13.1", features = ["renderer-femtovg", "backend-winit"] }
+slint = { version = "1.14.1", features = [] }
 tokio = { version = "1.47.1", features = ["sync", "rt", "macros"] }
 tokio-stream = "0.1.17"
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
-uuid = { version = "1.18.1", features = ["v4"] }
+uuid = { version = "1.18.1",default-features = false,features = ["v4"] }
 
 
 [build-dependencies]
-slint-build = "1.13.1"
+slint-build = "1.14.1"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"

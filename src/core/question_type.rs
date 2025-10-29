@@ -112,6 +112,7 @@ var Questions = [
 // 模板，段落两端对齐，首行缩进，字体字号不变
 // 在OCR时，注意把试卷中的不相关内容去掉，避免干扰
 // 字体和字大小要和此模板一致，不要改变
+//如果原来的题目有表格。请用html的table标签来表示表格。但是要正式
 
 var newContent = `
     <p style="text-align: justify; text-indent: 2em;">
@@ -171,6 +172,7 @@ var Questions = [
 // 在OCR时，注意把试卷中的不相关内容去掉，避免干扰
 // 字体和字大小要和此模板一致，不要改变
 //do not 带有```javascript ```
+//注意段落和换行
 var newContent = `
     <p style="text-align: justify; text-indent: 2em;">
         "Who would you like to change your life with if you can?" Last week, we asked many middle school students this 
@@ -290,8 +292,11 @@ var Questions = [
         answer: ["Paris"],
         analysis: "考点：世界地理常识。分析：巴黎是法国的首都和最大城市，也是法国的政治、经济、文化中心。故答案为：Paris"
     },
-    {//如果检测到是一个文章。且一个题目里面有多个空的，用下面这种格式
-            stem:`Good morning my name is (1) <span class="underline fillblank" data-blank-id="593417796829762302" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> I am from (2) <span class="underline fillblank" data-blank-id="593417796829762303" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span>`,
+    {//如果检测到是一个文章。且一个题目里面有多个空的，用下面这种格式。段落两端对齐，首行缩进，字体字号不变
+            stem:`Good morning my name is (1) <span class="underline fillblank" data-blank-id="593417796829762302" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> (这里可能会有提示的单词，你也要写上) I am from (2) <span class="underline fillblank" data-blank-id="593417796829762303" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span>`,
+            //序号从(1)开始。data-blank-id每次不要相同。不用管原题目的题号
+            //序号从(1)开始。data-blank-id每次不要相同不用管原题目的题号
+            //序号从(1)开始。data-blank-id每次不要相同不用管原题目的题号
             题型类型: "填空题",
             answer: ["John", "Canada"],
             analysis: "1. 考点：.....。分析：根据常见的自我介绍格式，名字是John. 故答案为：John,<br>2. 分析：.......。国家是Canada。故答案为： Canada"
@@ -304,6 +309,7 @@ var Questions = [
     fn get_cloze_test_note_prompt() -> String {
         String::from(
             r#"
+//输出下面的js格式的代码。你不用给我答案和其它，只给我js代码就行。我也不用 ```javascript ```代码块包裹。只要js代码就行
 // 好。现在我会给你一个题目 。请给出每个题目的tag。你要重点看这个空的考点。而不是把整个句子的考点都总结上。输出格式
 //最后给我的时候要把第一个题目的tag放在最后一行。如原来的数组是 [[1],[2],[3]]，你要输出 [[2],[3],[1]]。明白吗？
 var questionTags = [

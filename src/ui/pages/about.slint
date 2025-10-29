@@ -1,329 +1,147 @@
-import { Button, VerticalBox, HorizontalBox, ScrollView, StandardButton } from "std-widgets.slint";
+import {
+    Button,
+    VerticalBox,
+    HorizontalBox,
+    ScrollView,
+} from "std-widgets.slint";
 
-// 自定义卡片组件，展示信息
-component InfoCard inherits Rectangle {
-    in property <string> title: "";
-    in property <string> content: "";
-    in property <string> icon: "";
-    in property <color> accent-color: #3498db;
-    
-    // 使用状态来控制悬停效果
-    in-out property <bool> is-hovered: false;
-    
-    border-radius: 12px;
-    background: is-hovered ? accent-color.with-alpha(0.1) : #ffffff;
-    drop-shadow-blur: is-hovered ? 8px : 4px;
-    drop-shadow-color: #00000020;
-    drop-shadow-offset-y: is-hovered ? 4px : 2px;
-    
-    // 平滑的过渡动画
-    animate background { duration: 250ms; easing: ease-in-out; }
-    animate drop-shadow-blur { duration: 250ms; easing: ease-in-out; }
-    animate drop-shadow-offset-y { duration: 250ms; easing: ease-in-out; }
-    
-    border-width: 1px;
-    border-color: accent-color.with-alpha(0.2);
-    
-    // 内容布局
-    VerticalBox {
-        padding: 20px;
-        spacing: 12px;
-        
-        HorizontalBox {
-            spacing: 12px;
-            alignment: start;
-            
-            // 图标区域
-            Rectangle {
-                width: 40px;
-                height: 40px;
-                border-radius: 20px;
-                background: accent-color;
-                
-                Text {
-                    text: icon;
-                    font-size: 20px;
-                    color: white;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
-            }
-            
-            // 标题
-            Text {
-                text: title;
-                font-size: 18px;
-                font-weight: 600;
-                color: #2c3e50;
-                vertical-alignment: center;
-            }
-        }
-        
-        // 内容
-        Text {
-            text: content;
-            font-size: 14px;
-            color: #5d6d7e;
-            wrap: word-wrap;
-            horizontal-alignment: left;
-        }
-    }
-    
-    // 鼠标事件处理
-    TouchArea {
-        mouse-cursor: pointer;
-        
-        clicked => {
-            is-hovered = !is-hovered;
-        }
-    }
-}
-
-// 功能特性组件
-component FeatureItem inherits Rectangle {
-    in property <string> feature-text: "";
-    in property <color> feature-color: #27ae60;
-    
-    height: 40px;
-    
-    HorizontalBox {
-        spacing: 10px;
-        alignment: start;
-        
-        Rectangle {
-            width: 20px;
-            height: 20px;
-            border-radius: 10px;
-            background: feature-color;
-            
-            Text {
-                text: "✓";
-                color: white;
-                font-size: 12px;
-                font-weight: 700;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-        
-        Text {
-            text: feature-text;
-            font-size: 14px;
-            color: #34495e;
-            vertical-alignment: center;
-        }
-    }
-}
-
-// 社交链接按钮组件
-component SocialButton inherits Rectangle {
-    in property <string> platform: "";
-    in property <string> url: "";
-    in property <color> platform-color: #3498db;
-    
-    // 状态管理
-    in-out property <bool> is-pressed: false;
-    
-    width: 120px;
-    height: 40px;
-    border-radius: 20px;
-    background: is-pressed ? platform-color.darker(0.2) : platform-color;
-    
-    // 动画效果
-    animate background { duration: 150ms; easing: ease-in-out; }
-    
-    Text {
-        text: platform;
-        color: white;
-        font-size: 14px;
-        font-weight: 600;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    
-    TouchArea {
-        clicked => {
-            // 这里可以添加回调来打开链接
-        }
-    }
-}
-
-// 主要的关于页面组件
+// 简化的关于页面组件
 export component AboutPage inherits Rectangle {
     // 回调函数
     callback open-github();
     callback open-website();
     callback check-updates();
     
-    background: @linear-gradient(45deg, #f8f9fa, #e9ecef);
+    background: #f5f5f5;
     
     ScrollView {
         VerticalBox {
-            padding: 30px;
-            spacing: 25px;
+            padding: 20px;
+            spacing: 20px;
             alignment: start;
             
-            // 头部标题区域
-            Rectangle {
-                height: 120px;
+            // 应用标题
+            VerticalBox {
+                spacing: 8px;
+                Text {
+                    text: "题目配置工具";
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: #333;
+                    horizontal-alignment: center;
+                }
                 
+                Text {
+                    text: "Question Tool v1.0.0";
+                    font-size: 14px;
+                    color: #666;
+                    horizontal-alignment: center;
+                }
+            }
+            
+            // 应用描述
+            Rectangle {
+                border-radius: 8px;
+                background: white;
                 VerticalBox {
-                    spacing: 10px;
+                    padding: 16px;
+                    spacing: 12px;
                     
                     Text {
-                        text: "题目配置工具";
-                        font-size: 32px;
-                        font-weight: 700;
-                        color: #2c3e50;
-                        horizontal-alignment: center;
-                    }
-                    
-                    Text {
-                        text: "Question Tool v1.0.0";
+                        text: "关于应用";
                         font-size: 16px;
-                        color: #7f8c8d;
-                        horizontal-alignment: center;
+                        font-weight: 600;
+                        color: #333;
                     }
                     
                     Text {
-                        text: "基于 Rust 和 Slint 构建的现代化题目生成工具";
+                        text: "基于 Rust 和 Slint 构建的现代化题目生成工具，支持多种题型生成，集成 LLM 技术。";
                         font-size: 14px;
-                        color: #95a5a6;
-                        horizontal-alignment: center;
+                        color: #666;
                         wrap: word-wrap;
                     }
                 }
             }
             
-            // 应用信息卡片区域
-            HorizontalBox {
-                spacing: 20px;
-                
-                InfoCard {
-                    title: "应用信息";
-                    content: "这是一个基于 Rust 和 Slint 开发的题目配置工具，支持多种题型生成，包括听力理解、单选题、完型填空、阅读理解等。集成了先进的 LLM 技术，提供智能化的题目生成体验。";
-                    icon: "📋";
-                    accent-color: #3498db;
-                }
-                
-                InfoCard {
-                    title: "技术栈";
-                    content: "使用 Rust 语言开发，采用 Slint UI 框架构建现代化界面。支持多种 LLM 模型，包括 GPT-4、Claude 等，提供流式响应和实时交互功能。";
-                    icon: "⚡";
-                    accent-color: #e74c3c;
-                }
-            }
-            
-            // 功能特性区域
+            // 主要功能
             Rectangle {
-                height: 200px;
-                border-radius: 12px;
+                border-radius: 8px;
                 background: white;
-                drop-shadow-blur: 4px;
-                drop-shadow-color: #00000015;
-                drop-shadow-offset-y: 2px;
-                
                 VerticalBox {
-                    padding: 25px;
-                    spacing: 15px;
+                    padding: 16px;
+                    spacing: 12px;
                     
                     Text {
-                        text: "主要功能特性";
-                        font-size: 20px;
+                        text: "主要功能";
+                        font-size: 16px;
                         font-weight: 600;
-                        color: #2c3e50;
-                        horizontal-alignment: left;
+                        color: #333;
                     }
                     
                     VerticalBox {
-                        spacing: 8px;
-                        
-                        FeatureItem {
-                            feature-text: "支持多种题型：听力理解、单选题、完型填空、阅读理解等";
-                            feature-color: #27ae60;
+                        spacing: 6px;
+                        Text {
+                            text: "• 支持多种题型：听力、单选、完型填空、阅读理解";
+                            font-size: 14px;
+                            color: #666;
                         }
-                        
-                        FeatureItem {
-                            feature-text: "集成多个 LLM 提供商：OpenAI GPT、GitHub Models 等";
-                            feature-color: #3498db;
+                        Text {
+                            text: "• 集成多个 LLM 提供商";
+                            font-size: 14px;
+                            color: #666;
                         }
-                        
-                        FeatureItem {
-                            feature-text: "实时流式响应，支持中断和重新生成";
-                            feature-color: #e67e22;
+                        Text {
+                            text: "• 实时流式响应";
+                            font-size: 14px;
+                            color: #666;
                         }
-                        
-                        FeatureItem {
-                            feature-text: "现代化 UI 设计，响应式布局适配";
-                            feature-color: #9b59b6;
+                        Text {
+                            text: "• 现代化 UI 设计";
+                            font-size: 14px;
+                            color: #666;
                         }
                     }
                 }
             }
             
-            // 开发团队信息
-            InfoCard {
-                title: "开发团队";
-                content: "none";
-                icon: "👥";
-                accent-color: #f39c12;
-            }
-            
-            // 社交链接和操作按钮
+            // 操作按钮
             Rectangle {
-                height: 120px;
-                border-radius: 12px;
+                border-radius: 8px;
                 background: white;
-                drop-shadow-blur: 4px;
-                drop-shadow-color: #00000015;
-                drop-shadow-offset-y: 2px;
-                
                 VerticalBox {
-                    padding: 20px;
-                    spacing: 15px;
+                    padding: 16px;
+                    spacing: 12px;
                     
                     Text {
                         text: "了解更多";
-                        font-size: 18px;
+                        font-size: 16px;
                         font-weight: 600;
-                        color: #2c3e50;
+                        color: #333;
                         horizontal-alignment: center;
                     }
                     
                     HorizontalBox {
-                        spacing: 15px;
+                        spacing: 12px;
                         alignment: center;
                         
-                        SocialButton {
-                            platform: "GitHub";
-                            platform-color: #333333;
-                            
-                            TouchArea {
-                                clicked => {
-                                    root.open-github();
-                                }
+                        Button {
+                            text: "GitHub";
+                            clicked => {
+                                root.open-github();
                             }
                         }
                         
-                        SocialButton {
-                            platform: "官网";
-                            platform-color: #3498db;
-                            
-                            TouchArea {
-                                clicked => {
-                                    root.open-website();
-                                }
+                        Button {
+                            text: "官网";
+                            clicked => {
+                                root.open-website();
                             }
                         }
                         
-                        SocialButton {
-                            platform: "检查更新";
-                            platform-color: #27ae60;
-                            
-                            TouchArea {
-                                clicked => {
-                                    root.check-updates();
-                                }
+                        Button {
+                            text: "检查更新";
+                            clicked => {
+                                root.check-updates();
                             }
                         }
                     }
@@ -331,32 +149,20 @@ export component AboutPage inherits Rectangle {
             }
             
             // 版权信息
-            Rectangle {
-                height: 80px;
+            VerticalBox {
+                spacing: 4px;
+                Text {
+                    text: "© 2024 Question Tool. All rights reserved.";
+                    font-size: 12px;
+                    color: #999;
+                    horizontal-alignment: center;
+                }
                 
-                VerticalBox {
-                    spacing: 8px;
-                    
-                    Text {
-                        text: "© 2024 Question Tool. All rights reserved.";
-                        font-size: 12px;
-                        color: #95a5a6;
-                        horizontal-alignment: center;
-                    }
-                    
-                    Text {
-                        text: "Built with ❤️ using Rust and Slint";
-                        font-size: 12px;
-                        color: #95a5a6;
-                        horizontal-alignment: center;
-                    }
-                    
-                    Text {
-                        text: "Version 1.0.0 - Released October 2024";
-                        font-size: 10px;
-                        color: #bdc3c7;
-                        horizontal-alignment: center;
-                    }
+                Text {
+                    text: "Built with Rust and Slint";
+                    font-size: 12px;
+                    color: #999;
+                    horizontal-alignment: center;
                 }
             }
         }
