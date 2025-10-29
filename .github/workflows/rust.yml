@@ -1,22 +1,76 @@
-name: Rust
+name: Build & Release (Rust Multi-platform)
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    tags:
+      - "v*"    # 只有打 tag 时触发，例如 v1.0.0
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build release
+        run: cargo build --release
+
+      # 压缩构建产物（根据不同系统执行不同命令）
+      - name: Package executable
+        shell: bash
+        run: |
+          mkdir dist
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp target/release/*.exe dist/
+            cd dist && 7z a app-${{ matrix.os }}.zip *.exe
+          else
+            cp target/release/* dist/
+            cd dist && tar -czvf app-${{ matrix.os }}.tar.gz *
+          fi
+
+      # 上传制品供下一步 Release 使用
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.os }}
+          path: dist/*
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Release & Upload Files
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
