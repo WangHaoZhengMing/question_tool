@@ -208,20 +208,71 @@ impl LLMBackend for GPTBackend {
         response_sender: mpsc::Sender<LLMResponse>,
     ) -> Result<(), Error> {
         let messages = self.build_messages(&text, image_path);
-        tracing::info!("current model: {}", self.model);
+        tracing::info!("[gpt_backend] current model: {}", self.model);
+
+        // 设置环境变量
+        self.setup_environment();
 
         // 首先尝试流式请求
-        match self
-            .try_streaming_request(messages.clone(), &response_sender)
-            .await
-        {
-            Ok(content) => {
-                // 流式请求成功完成
-                let _ = response_sender.send(LLMResponse {
-                    content,
-                    is_complete: true,
-                });
-                Ok(())
+        tracing::info!("[gpt_backend] Attempting streaming request...");
+        let stream_request = ChatRequest::new(&self.model, messages.clone()).with_stream();
+
+        match stream_request.send_stream().await {
+            Ok(mut response) => {
+                let mut accumulated_content = String::new();
+
+                while let Some(result) = response.next().await {
+                    match result {
+                        Ok(response) => {
+                            if let Some(content) = response
+                                .choices
+                                .first()
+                                .and_then(|c| c.delta.as_ref())
+                                .and_then(|d| d.content.as_ref())
+                            {
+                                accumulated_content.push_str(content);
+
+                                // 发送流式更新
+                                tracing::trace!(
+                                    "[gpt_backend] Streaming response chunk, total length: {}",
+                                    accumulated_content.len()
+                                );
+                                let _ = response_sender.send(LLMResponse {
+                                    content: accumulated_content.clone(),
+                                    is_complete: false,
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!("[gpt_backend] GPT streaming error during processing: {}", e);
+                            let _ = response_sender.send(LLMResponse {
+                                content: format!("Error during streaming: {}", e),
+                                is_complete: true,
+                            });
+                            return Err(e);
+                        }
+                    }
+                }
+
+                if !accumulated_content.is_empty() {
+                    tracing::info!(
+                        "[gpt_backend] GPT streaming response completed, total length: {}",
+                        accumulated_content.len()
+                    );
+                    // 发送最终完成响应
+                    let _ = response_sender.send(LLMResponse {
+                        content: accumulated_content,
+                        is_complete: true,
+                    });
+                    Ok(())
+                } else {
+                    tracing::error!("[gpt_backend] GPT streaming failed: No response content");
+                    let _ = response_sender.send(LLMResponse {
+                        content: "Error: No response content from GPT streaming".to_string(),
+                        is_complete: true,
+                    });
+                    Err(Error::Stream("No response content from GPT".into()))
+                }
             }
             Err(e) => {
                 // 流式请求失败，尝试非流式请求
@@ -230,14 +281,35 @@ impl LLMBackend for GPTBackend {
                     e
                 );
 
-                match self.try_non_streaming_request(messages).await {
-                    Ok(content) => {
-                        // 发送完整响应
-                        let _ = response_sender.send(LLMResponse {
-                            content,
-                            is_complete: true,
-                        });
-                        Ok(())
+                let non_stream_request = ChatRequest::new(&self.model, messages);
+
+                match non_stream_request.send().await {
+                    Ok(response) => {
+                        if let Some(content) = response
+                            .choices
+                            .first()
+                            .and_then(|choice| choice.message.as_ref())
+                            .and_then(|message| message.content.as_ref())
+                            .filter(|content| !content.is_empty())
+                        {
+                            tracing::info!(
+                                "[gpt_backend] GPT non-streaming response successful, length: {}",
+                                content.len()
+                            );
+                            // 发送完整响应
+                            let _ = response_sender.send(LLMResponse {
+                                content: content.clone(),
+                                is_complete: true,
+                            });
+                            Ok(())
+                        } else {
+                            tracing::error!("[gpt_backend] GPT non-streaming failed: No response content");
+                            let _ = response_sender.send(LLMResponse {
+                                content: "Error: No response content from GPT non-streaming".to_string(),
+                                is_complete: true,
+                            });
+                            Err(Error::Stream("No response content from GPT".into()))
+                        }
                     }
                     Err(e2) => {
                         tracing::error!(
@@ -265,7 +337,17 @@ impl LLMBackend for GPTBackend {
         let messages = vec![
             ChatMessage::system("You are a helpful assistant."),
             ChatMessage::user(
-                "Please respond with 'Hello! I am working correctly.' to confirm you are available.",
+                "先说下你的模型名称\n//请 
+直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不 
+用代码块包裹\nvar Questions = [\n    {\n        stem: `Which of the following is a <span class=\"underline fillblank\" data-blank-id=\"593417796829762300\" contenteditable=\"false\" style=\"text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;\"><input type=\"text\" style=\"display:none\">   </span> language?`, //这里不要带题号.这里的data-blank-id每次不要相同\n    
+    题型类型: \"语音题\",\n        answer: [\"programming\"],\n        analysis: \"考点：编程语言识别。 
+分析：Python是一种高级编程语言，广泛用于数据科学、人工智能等领域。故答案为：programming\", //解析要用中 
+文。格式要分为：考点，分析，故答案为：\n    },\n    {\n        stem: `The capital of France is <span class=\"underline fillblank\" data-blank-id=\"593417796829762301\" contenteditable=\"false\" style=\"text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;\"><input type=\"text\" style=\"display:none\">   </span>.`,\n        题型类型: \"填空题\",\n        answer: [\"Paris\"],\n        analysis: \"考点：世界地理常识。分析：巴黎是法国的首都和最大城市，也是法国的政治、经 
+济、文化中心。故答案为：Paris\"\n    },\n    {//如果检测到是一个文章。且一个题目里面有多个空的，用下面这种格式。段落两端对齐，首行缩 
+进，字体字号不变\n            stem:`Good morning my name is (1) <span class=\"underline fillblank\" data-blank-id=\"593417796829762302\" contenteditable=\"false\" style=\"text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;\"><input type=\"text\" style=\"display:none\">   </span> (这里可能会有提示的单词，你也要写上) I am from (2) <span class=\"underline fillblank\" data-blank-id=\"593417796829762303\" contenteditable=\"false\" style=\"text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;\"><input type=\"text\" style=\"display:none\">   </span>`,\n            //序号从(1)开始。data-blank-id每次不要相同。不用管原题目的题号\n            //序号从(1)开始。data-blank-id每次不要相同不用管原题目的题
+号\n            //序号从(1)开始。data-blank-id每次不要相同不用管原题目的题号\n            题型类型: \"填空题\",\n            answer: 
+[\"John\", \"Canada\"],\n            analysis: \"1. 考点：.....。分析：根据常见的自我介绍格式，名字是John. 故答案为：John,<br>2. 分析
+：.......。国家是Canada。故答案为： Canada\"\n    },\n];\n",
             ),
         ];
 
@@ -355,14 +437,14 @@ mod tests {
     #[tokio::test]
     async fn test_gpt_connection() {
         let _ = tracing_subscriber::fmt::try_init();
-        let key = "01110011,01101011,00101101,01110101,01000010,01101000,01000101,01101010,01101101,01001110,01010010,00110100,01101110,01001110,01101011,01110110,01110110,01100001,01011010,01110011,01000111,01101100,01100110,01000100,01011000,01101000,01100100,01010110,01110011,01000101,01000110,01001000,01100001,01100011,01110001,01000100,00111000,00110111,01100110,01100011,01100110,01101101,01010110,01110101,01100011,01011001,01001000,01000101,01111010,01011001,01110110";
+        let key = "01110011,01101011,00101101,01101111,01101011,01000110,01110111,01100101,01010100,01000110,01011001,01010101,01111010,00110000,00110001,01100001,01000010,01010000,00110111,01011001,01110110,01010100,01101011,01110110,00111000,01001001,00110100,01111010,01101000,01100101,01110110,01110100,01100011,01001000,00110111,01100111,01011000,01101001,01011001,01100010,01100100,01100010,01000111,00110011,01001010,01100010,01101011,01110100,00110001,01001110,01100100";
         let bytes: Vec<u8> = key
             .split(',')
             .filter_map(|b| u8::from_str_radix(b.trim(), 2).ok())
             .collect();
         let backend = GPTBackend::new("gemini-2.5-pro".to_string())
             .with_api_key(String::from_utf8(bytes).unwrap())
-            .with_base_url(String::from("https://api.tu-zi.com/v1"));
+            .with_base_url(String::from("http://27.106.110.32:2052/v1"));
         println!("{:?}", backend);
         match backend.test_availability().await {
             Ok(response) => {

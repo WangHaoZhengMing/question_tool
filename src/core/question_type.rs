@@ -16,6 +16,8 @@ pub enum QuestionType {
     ListeningCompound,
     ///　多个填空
     MutiTiankong,
+    /// 语篇填空
+    GeneralFill,
     /// 完形填空note
     ClozeTestNote,
 }
@@ -31,6 +33,7 @@ impl QuestionType {
             QuestionType::ListeningCompound => "听力复合题",
             QuestionType::MutiTiankong => "多个填空题",
             QuestionType::ClozeTestNote => "完形填空note",
+            QuestionType::GeneralFill => "语篇填空",
         }
     }
 }
@@ -45,6 +48,7 @@ impl FromStr for QuestionType {
             "单项听力理解" => Ok(QuestionType::ListeningSingle),
             "听力复合题" => Ok(QuestionType::ListeningCompound),
             "多个填空题" => Ok(QuestionType::MutiTiankong),
+            "语篇填空" => Ok(QuestionType::GeneralFill),
             "完形填空note" => Ok(QuestionType::ClozeTestNote),
             _ => Err(()),
         }
@@ -72,6 +76,7 @@ impl PromptTemplate {
             QuestionType::ListeningCompound => Self::get_listening_compound_prompt(),
             QuestionType::MutiTiankong => Self::get_muti_tiankong_prompt(),
             QuestionType::ClozeTestNote => Self::get_cloze_test_note_prompt(),
+            QuestionType::GeneralFill => Self::get_general_fill_prompt(),
         }
     }
 
@@ -278,7 +283,7 @@ var Questions = [
     fn get_muti_tiankong_prompt() -> String {
         String::from(
             r#"
-//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹.你要分成多个{}去写
 var Questions = [
     {
         stem: `Which of the following is a <span class="underline fillblank" data-blank-id="593417796829762300" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> language?`, //这里不要带题号.这里的data-blank-id每次不要相同
@@ -292,20 +297,28 @@ var Questions = [
         answer: ["Paris"],
         analysis: "考点：世界地理常识。分析：巴黎是法国的首都和最大城市，也是法国的政治、经济、文化中心。故答案为：Paris"
     },
-    {//如果检测到是一个文章。且一个题目里面有多个空的，用下面这种格式。段落两端对齐，首行缩进，字体字号不变
+];
+"#,
+        )
+    }
+    
+    fn get_general_fill_prompt() -> String {
+        String::from(
+            r#"
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
+//段落两端对齐，首行缩进，字体字号不变。
+var Questions = [
+    {
             stem:`Good morning my name is (1) <span class="underline fillblank" data-blank-id="593417796829762302" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> (这里可能会有提示的单词，你也要写上) I am from (2) <span class="underline fillblank" data-blank-id="593417796829762303" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span>`,
             //序号从(1)开始。data-blank-id每次不要相同。不用管原题目的题号
-            //序号从(1)开始。data-blank-id每次不要相同不用管原题目的题号
-            //序号从(1)开始。data-blank-id每次不要相同不用管原题目的题号
             题型类型: "填空题",
             answer: ["John", "Canada"],
             analysis: "1. 考点：.....。分析：根据常见的自我介绍格式，名字是John. 故答案为：John,<br>2. 分析：.......。国家是Canada。故答案为： Canada"
     },
 ];
-"#,
-        )
+            "#,)
     }
-
+ 
     fn get_cloze_test_note_prompt() -> String {
         String::from(
             r#"
@@ -347,6 +360,8 @@ var questionTags = [
             "#,
         )
     }
+
+
 }
 
 /// 附加代码生成器
@@ -370,6 +385,7 @@ impl AdditionalCodeGenerator {
             QuestionType::ListeningCompound => self.get_listening_compound_code(),
             QuestionType::MutiTiankong => self.get_muti_tiankong_code(),
             QuestionType::ClozeTestNote => self.get_cloze_test_note_code(),
+            QuestionType::GeneralFill => self.get_muti_tiankong_code(),
         }
     }
 

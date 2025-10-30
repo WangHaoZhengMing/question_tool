@@ -152,6 +152,7 @@ impl EventHandlers {
                         if is_complete {
                             app.set_is_streaming(false);
                             tracing::info!("[event_handlers] LLM response completed, UI updated");
+                            // tracing::info!("[event_handlers] LLM response content: {}", content);
                         }
                     }
                 })

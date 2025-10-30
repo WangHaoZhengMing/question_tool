@@ -1,10 +1,25 @@
+// 导入标准组件
 import { CheckBox, StandardListView } from "std-widgets.slint";
-import { SingleChoice,Page,WanXingTianKong,Reading,ListeningSingle,ListeningCompound,MutiTiankong,WanXingTiankongNote,AboutPage} from "ui/pages/pages.slint";
+
+// 导入页面组件
+import { 
+    SingleChoice,
+    Page,
+    WanXingTianKong,
+    Reading,
+    ListeningSingle,
+    ListeningCompound,
+    MutiTiankong,
+    WanXingTiankongNote,
+    AboutPage,
+    GereralFill
+} from "ui/pages/pages.slint";
 import { Page } from "ui/pages/page.slint";
 import { SideBar } from "ui/side_bar.slint";
 import { LLMSettings } from "ui/pages/setting.slint";
 
 export component App inherits Window {
+    // 窗口基本设置
     preferred-width: 800px;
     preferred-height: 500px;
     title: @tr("题目配置工具");
@@ -12,14 +27,25 @@ export component App inherits Window {
     full-screen: false;
     icon: @image-url("../icon/icon.png");
     
+    // === 核心状态属性 ===
     in-out property <image> current_image;
     in-out property <string> prefill_text: "";
     in-out property <string> model_reply: "";
-
     in-out property <bool> is_streaming: false;
-    in-out property <string> question_type: side-bar.current-item == 0 ? "听力理解" : side-bar.current-item == 1 ? "单选题" : side-bar.current-item == 2 ? "完型填空" : side-bar.current-item == 3 ? "阅读理解" : side-bar.current-item == 4 ? "多个填空题" : side-bar.current-item == 5 ? "填空题" : side-bar.current-item == 8 ? "完形填空note" : "weizhi";
     
-    // LLM 设置相关属性
+    // 根据侧边栏选择确定问题类型
+    in-out property <string> question_type: {
+        if (side-bar.current-item == 0) { "听力理解" }
+        else if (side-bar.current-item == 1) { "单选题" }
+        else if (side-bar.current-item == 2) { "完型填空" }
+        else if (side-bar.current-item == 3) { "阅读理解" }
+        else if (side-bar.current-item == 4) { "多个填空题" }
+        else if (side-bar.current-item == 5) { "语篇填空" }
+        else if (side-bar.current-item == 8) { "完形填空note" }
+        else { "未知" }
+    }
+    
+    // === LLM 配置属性 ===
     in-out property <string> llm-provider: "GPT";
     in-out property <string> llm-model: "gpt-4o";
     in-out property <string> llm-api-key: "";
@@ -28,12 +54,14 @@ export component App inherits Window {
     in-out property <bool> llm-enable-streaming: true;
     in-out property <string> llm-test-result: "";
     in-out property <bool> llm-is-testing: false;
+    
+    // === 消息处理回调 ===
     callback send_message();
     callback copy_reply_and_addcode();
     callback stop_response();
     callback clear_image();
     
-    // LLM 设置回调
+    // === LLM 设置回调 ===
     callback llm-provider-changed(string);
     callback llm-model-changed(string);
     callback llm-api-key-changed(string);
@@ -44,159 +72,112 @@ export component App inherits Window {
     callback llm-save-settings();
     callback llm-load-settings();
 
-
-    // MenuBar {
-    //     Menu {
-    //         title: @tr("MenuBar" => "File");
-    //         MenuItem { title: @tr("MenuBar" => "Open"); }
-    //         Menu {
-    //             title: @tr("MenuBar" => "Open Recent");
-    //             for x in 10: MenuItem { title: @tr("MenuBar" => "Recent {}", x+1);  }
-    //         }
-    //         MenuSeparator {}
-    //         MenuItem { title: @tr("MenuBar" => "Save"); }
-    //         Menu {
-    //             title: @tr("MenuBar" => "Save As");
-    //             for x in 10: MenuItem { title: @tr("MenuBar" => "Name {}", x+1);  }
-    //         }
-    //         MenuSeparator {}
-    //         MenuItem { title: @tr("MenuBar" => "MenuItem with Icon"); icon: @image-url("thumbsup.png"); }
-    //         MenuItem { title: @tr("MenuBar" => "MenuItem with Checkmark"); checkable: true; checked: true; }
-    //     }
-    //     Menu {
-    //         title: @tr("MenuBar" => "Edit");
-    //         MenuItem { title: @tr("MenuBar" => "Copy"); }
-    //         MenuItem { title: @tr("MenuBar" => "Paste"); }
-    //     }
-    // }
-
+    // === 主布局 ===
     HorizontalLayout {
+        // 侧边栏
         side-bar := SideBar {
             title: @tr("题目配置工具");
             model: [
-            @tr("Menu" => "单项听力理解"), @tr("Menu" => "单项选择"), @tr("Menu" => "完型填空"), 
-            @tr("Menu" => "阅读理解"), @tr("Menu" => "多个填空"), @tr("Menu" => "填空题"),
-                @tr("Menu" => "LLM 设置"), @tr
-               ("Menu" => "About"),
-               @tr("Menu" => "完型填空打标工具")
+                @tr("Menu" => "单项听力理解"), 
+                @tr("Menu" => "单项选择"), 
+                @tr("Menu" => "完型填空"), 
+                @tr("Menu" => "阅读理解"), 
+                @tr("Menu" => "多个填空"), 
+                @tr("Menu" => "语篇填空"),
+                @tr("Menu" => "LLM 设置"), 
+                @tr("Menu" => "About"),
+                @tr("Menu" => "完型填空打标工具")
             ];
         }
 
-        if(side-bar.current-item == 0): ListeningSingle {
+        // === 页面内容区域 ===
+        
+        // 单项听力理解页面 (index: 0)
+        if (side-bar.current-item == 0): ListeningSingle {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
-        if(side-bar.current-item == 1): SingleChoice {
+        
+        // 单项选择页面 (index: 1)
+        if (side-bar.current-item == 1): SingleChoice {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
-        if(side-bar.current-item == 2) : WanXingTianKong {
+        
+        // 完型填空页面 (index: 2)
+        if (side-bar.current-item == 2): WanXingTianKong {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
-        if(side-bar.current-item == 3) : Reading {
+        
+        // 阅读理解页面 (index: 3)
+        if (side-bar.current-item == 3): Reading {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
-        if(side-bar.current-item == 4) : MutiTiankong {
+        
+        // 多个填空页面 (index: 4)
+        if (side-bar.current-item == 4): MutiTiankong {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
-        if(side-bar.current-item == 5) : ListeningCompound {
+        
+        // 填空题页面 (index: 5)
+        if (side-bar.current-item == 5): GereralFill {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
-        if(side-bar.current-item == 6): LLMSettings {
+        
+        // LLM 设置页面 (index: 6)
+        if (side-bar.current-item == 6): LLMSettings {
             current-provider <=> root.llm-provider;
             current-model <=> root.llm-model;
             api-key <=> root.llm-api-key;
@@ -205,53 +186,33 @@ export component App inherits Window {
             enable-streaming <=> root.llm-enable-streaming;
             test-result <=> root.llm-test-result;
             is-testing <=> root.llm-is-testing;
-            provider-changed(provider) => {
-                root.llm-provider-changed(provider);
-            }
-            model-changed(model) => {
-                root.llm-model-changed(model);
-            }
-            api-key-changed(key) => {
-                root.llm-api-key-changed(key);
-            }
-            base-url-changed(url) => {
-                root.llm-base-url-changed(url);
-            }
-            github-token-changed(token) => {
-                root.llm-github-token-changed(token);
-            }
-            streaming-changed(enabled) => {
-                root.llm-streaming-changed(enabled);
-            }
-            test-connection() => {
-                root.llm-test-connection();
-            }
-            save-settings() => {
-                root.llm-save-settings();
-            }
-            load-settings() => {
-                root.llm-load-settings();
-            }
+            
+            provider-changed(provider) => { root.llm-provider-changed(provider); }
+            model-changed(model) => { root.llm-model-changed(model); }
+            api-key-changed(key) => { root.llm-api-key-changed(key); }
+            base-url-changed(url) => { root.llm-base-url-changed(url); }
+            github-token-changed(token) => { root.llm-github-token-changed(token); }
+            streaming-changed(enabled) => { root.llm-streaming-changed(enabled); }
+            test-connection() => { root.llm-test-connection(); }
+            save-settings() => { root.llm-save-settings(); }
+            load-settings() => { root.llm-load-settings(); }
         }
-        if(side-bar.current-item == 7): AboutPage {}
+        
+        // About 页面 (index: 7)
+        if (side-bar.current-item == 7): AboutPage {}
+        
+        // 完型填空打标工具页面 (index: 8)
         if (side-bar.current-item == 8): WanXingTiankongNote {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
             model_reply <=> root.model_reply;
             is_streaming <=> root.is_streaming;
-            send_message => {
-                root.send_message();
-            }
-            copy_reply_and_addcode => {
-                root.copy_reply_and_addcode();
-            }
-            stop_response => {
-                root.stop_response();
-            }
-            clear_image => {
-                root.clear_image();
-            }
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
         }
     }
 }

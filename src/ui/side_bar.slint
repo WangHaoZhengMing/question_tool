@@ -164,16 +164,16 @@ export component SideBar inherits Rectangle {
 
     // Function to get default icon for common menu items
     pure function get-default-icon(text: string) -> string {
-        if (text == "听力理解") { "🎧" }
-        else if (text == "单项选择") { "📝" }
-        else if (text == "完型填空") { "📋" }
-        else if (text == "阅读理解") { "📖" }
-        else if (text == "语篇填空") { "✏️" }
-        else if (text == "填空题") { "📄" }
-        else if (text == "About") { "" }
-        else if (text == "Home") { "🏠" }
-        else if (text == "Settings") { "⚙️" }
-        else { "📄" }
+        if (text == "听力理解") { "🔊" }
+        else if (text == "单项选择") { "✔️" }
+        else if (text == "完型填空") { "🧩" }
+        else if (text == "阅读理解") { "📚 " }
+        else if (text == "语篇填空") { "📝" }
+        else if (text == "填空题") { "📋" }
+        else if (text == "About") { "ℹ️" }
+        else if (text == "Home") { "🏡" }
+        else if (text == "Settings") { "🔧" }
+        else { "📌" }
     }
 
     width: root.sidebar-width;
