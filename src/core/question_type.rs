@@ -367,7 +367,7 @@ var questionTags = [
         )
     }
 
-    fn Self::get_complete_question_prompt()->String{
+    fn get_complete_question_prompt()->String{
                 String::from(r#"
 //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 //段落两端对齐，首行缩进，字体字号不变。
