@@ -20,6 +20,8 @@ pub enum QuestionType {
     GeneralFill,
     /// 完形填空note
     ClozeTestNote,
+    /// 补全题
+    CompleteQuestion,
 }
 
 impl QuestionType {
@@ -34,6 +36,7 @@ impl QuestionType {
             QuestionType::MutiTiankong => "多个填空题",
             QuestionType::ClozeTestNote => "完形填空note",
             QuestionType::GeneralFill => "语篇填空",
+            QuestionType::CompleteQuestion => "补全题",
         }
     }
 }
@@ -50,6 +53,7 @@ impl FromStr for QuestionType {
             "多个填空题" => Ok(QuestionType::MutiTiankong),
             "语篇填空" => Ok(QuestionType::GeneralFill),
             "完形填空note" => Ok(QuestionType::ClozeTestNote),
+            "补全题" => Ok(QuestionType::CompleteQuestion),
             _ => Err(()),
         }
     }
@@ -77,6 +81,7 @@ impl PromptTemplate {
             QuestionType::MutiTiankong => Self::get_muti_tiankong_prompt(),
             QuestionType::ClozeTestNote => Self::get_cloze_test_note_prompt(),
             QuestionType::GeneralFill => Self::get_general_fill_prompt(),
+            QuestionType::CompleteQuestion => Self::get_complete_question_prompt(),
         }
     }
 
@@ -362,7 +367,39 @@ var questionTags = [
         )
     }
 
+    fn Self::get_complete_question_prompt()->String{
+                String::from(r#"
+//请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
+//段落两端对齐，首行缩进，字体字号不变。
+//如果有表格，那就用 Html 的表格语法来写。如果有框，这个框要用html的一个行一个列的表格来画。
+var newContent = {
+    stem: `
+      <p style="text-align: justify; text-indent: 2em;">
+          "Who would you like to change your life with if you can?" Last week, we asked many middle school students this 
+          <span class="number fillblank" contenteditable="false" data-blank-id="31" 
+                style="text-indent:0; display: inline-block;width:40px;height: 20px;line-height: 20px;border-bottom: 2px solid #000;text-align:center">31</span>. 
+          The following are some of their 
+          <span class="number fillblank" contenteditable="false" data-blank-id="32" 
+                style="text-indent:0; display: inline-block;width:40px;height: 20px;line-height: 20px;border-bottom: 2px solid #000;text-align:center">32</span>.
+      </p>
+  `,
+    options: [
+        "选项 A 内容",
+        "选项 B 内容",
+        "选项 C 内容",
+        "选项 D 内容",
+        "选项 E 内容",
+    ],
+    answers: [
+        "A",
+        "E",
+    ],
+    analysis: "这是题目的解析内容。",
+};
 
+            "#,)
+        
+    }
 }
 
 /// 附加代码生成器
@@ -387,9 +424,299 @@ impl AdditionalCodeGenerator {
             QuestionType::MutiTiankong => self.get_muti_tiankong_code(),
             QuestionType::ClozeTestNote => self.get_cloze_test_note_code(),
             QuestionType::GeneralFill => self.get_muti_tiankong_code(),
+            QuestionType::CompleteQuestion => self.get_complete_question_code(),
+        }
+    }
+    fn get_complete_question_code(&self)-> String {
+                String::from(r#" 
+
+async function main(newContent) {
+    console.log("主函数开始执行...");
+    var stemEditor = document.querySelector(
+        '.ql-editor[data-placeholder="请录入题干"]',
+    );
+    if (!stemEditor) {
+        // 备用选择器 - 查找题干内容编辑器
+        stemEditor = document.querySelector(
+            'div[contenteditable="true"][placeholder*="题干"]',
+        );
+        if (!stemEditor) {
+            // 再次备用 - 查找第一个可编辑的内容区域
+            stemEditor = document.querySelector(".ql-editor");
+        }
+    }
+    if (stemEditor) {
+        await simulateContentInput(stemEditor, newContent.stem);
+        console.log("✅ 已填充题干内容");
+    } else {
+        console.error("❌ 未找到题干编辑器");
+    }
+    // 等待内容保存
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    //------------------------------------------------------------------------
+    var optionEditors = Array.from(
+        document.querySelectorAll(
+            "div.ckeditor_div.whiteOnly.showBox.placeholderText[data-v-17edc77d]",
+        ),
+    ).filter((el) => el.textContent.trim().includes("请录入选项"));
+    var optionEditors2 = Array.from(
+        document.querySelectorAll(
+            '#c3720fb1-7c84-4965-acd2-bfbf49e4d13d, div.ckeditor_div.whiteOnly.placeholder[contenteditable="true"][placeholder="请录入选项"], div[contenteditable="true"][placeholder*="请录入选项"]',
+        ),
+    ).filter(
+        (el) =>
+            el && el.textContent && el.textContent.trim().includes("请录入选项"),
+    );
+
+    for (let i = 0; i < newContent.options.length; i++) {
+        if (optionEditors[i]) {
+            await simulateContentInput(optionEditors[i], newContent.options[i]);
+            await simulateContentInput(optionEditors2[i], newContent.options[i]);
+            console.log(`✅ 已填充选项 ${String.fromCharCode(65 + i)} 内容`);
+        } else {
+            console.warn(`⚠️ 未找到选项 ${String.fromCharCode(65 + i)} 的编辑器`);
         }
     }
 
+    // 填充单字符答案（如 A、B、C）
+    var answerBox = document.querySelector('.answer-box');
+    var cusInputs = answerBox
+        ? Array.from(answerBox.querySelectorAll('input.cus-input[maxlength="1"], input[data-v-3b7eb153].cus-input[maxlength="1"]'))
+        : Array.from(document.querySelectorAll('input.cus-input[maxlength="1"], input[data-v-3b7eb153].cus-input[maxlength="1"]'));
+
+    if (!cusInputs.length) {
+        console.warn("⚠️ 未找到任何 cus-input 输入框");
+    } else {
+        console.log(`✅ 找到 ${cusInputs.length} 个 cus-input 输入框`);
+    }
+
+    for (let i = 0; i < newContent.answers.length; i++) {
+        const input = cusInputs[i];
+        if (!input) {
+            console.warn(`⚠️ 未找到答案 ${String.fromCharCode(65 + i)} 的输入框`);
+            continue;
+        }
+
+        let raw = String(newContent.answers[i] || '').trim();
+        // 优先提取字母/数字（A/B/C 或 a/b/c 或 0-9），否则使用序号默认 A/B/C...
+        let m = raw.match(/[A-Za-z0-9一二三四五六七八九零①②③④⑤⑥⑦⑧⑨]/);
+        let char = m ? m[0] : String.fromCharCode(65 + i);
+        if (/[a-z]/.test(char)) char = char.toUpperCase();
+
+        input.focus();
+        input.value = char;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+
+        console.log(`✅ 已填充答案 ${String.fromCharCode(65 + i)} => "${char}"`);
+    }
+
+    //------------------------------------------------------------------------
+    var analysisEditor = document.querySelector('.ql-editor[data-placeholder="请录入解析"]');
+    if (!analysisEditor) {
+        analysisEditor = Array.from(
+            document.querySelectorAll(
+                'div.ckeditor_div.whiteOnly.showBox.placeholderText, div[contenteditable="true"][placeholder*="请录入解析"], div[contenteditable="true"][placeholder="请录入解析"], .ql-editor',
+            ),
+        ).find((el) => el && el.textContent && el.textContent.trim().includes("请录入解析"));
+    }
+    if (analysisEditor) {
+        await simulateContentInput(analysisEditor, newContent.analysis);
+        console.log("✅ 已填充解析内容");
+    } else {
+        console.error("❌ 未找到解析编辑器");
+    }
+
+}
+
+async function simulateContentInput(element, content) {
+    if (!element) {
+        console.warn("⚠️ 目标元素不存在，跳过填充");
+        return;
+    }
+
+    element.focus();
+
+    // 触发开始编辑事件
+    element.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true }));
+
+    // 设置内容
+    element.innerHTML = content;
+
+    // 触发一系列输入相关事件
+    const events = ["input", "textInput", "keyup", "change"];
+    events.forEach((eventType) => {
+        element.dispatchEvent(
+            new Event(eventType, { bubbles: true, cancelable: true }),
+        );
+    });
+
+    // 触发结束编辑事件
+    element.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    console.log("✅ 模拟键盘输入完成");
+
+    // 短暂延时确保内容稳定
+    await new Promise((resolve) => setTimeout(resolve, 100));
+}
+
+/**
+ * 等待指定毫秒数
+ * @param {number} ms - 等待的时间（毫秒）
+ */
+var delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+//MARK： 使用XPath查找包含指定文本的元素
+function clickBlankFillingElement(type) {
+    // XPath表达式：查找class包含"tag"且包含指定文本的元素
+    var xpath = "//*[contains(@class,'tag') and contains(text(),'" + type + "')]";
+
+    // 执行XPath查询
+    var result = document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+    );
+
+    // 如果找到元素，点击它
+    if (result.singleNodeValue) {
+        result.singleNodeValue.click();
+        console.log(`成功点击 ${type} 标签元素`);
+        return true;
+    } else {
+        console.log(`未找到包含 '${type}' 文本的标签元素`);
+        return false;
+    }
+}
+// 定位并点击最后一题的函数
+async function locateAndClickLastQuestion() {
+    // 查找所有题目容器
+    var allQuestions = document.querySelectorAll('.question-item');
+
+    if (allQuestions.length > 0) {
+        // 获取最后一个题目
+        var lastQuestion = allQuestions[allQuestions.length - 1];
+
+        // 滚动到最后一题
+        lastQuestion.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // 点击最后一题
+        lastQuestion.click();
+
+        console.log('已点击最后一题，ID:', lastQuestion.id);
+
+        // 等待一下让页面响应
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        return true;
+    } else {
+        console.log('未找到任何题目');
+        return false;
+    }
+}
+// 添加新题目的函数
+async function addNewQuestion() {
+    // 查找"添加题目"按钮
+    var addButton = document.querySelectorAll('.add-operate-item')[1];
+
+    if (addButton) {
+        // 点击添加题目按钮
+        addButton.click();
+        console.log('已点击添加题目按钮');
+
+        // 等待新题目创建完成
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return true;
+    } else {
+        console.log('未找到添加题目按钮');
+        return false;
+    }
+}
+
+
+async function pre_main() {
+    await locateAndClickLastQuestion()
+
+    await addNewQuestion()
+
+    // 1. 点击下拉框
+    var selectDiv = document.querySelector('div[title="单选题"]');
+
+
+    if (selectDiv) {
+        selectDiv.click();
+        console.log('已点击题型下拉框');
+
+        // 2. 选择指定题型 - 使用 Promise 替代 setTimeout
+        await new Promise(resolve => {
+            setTimeout(function () {
+                var options = document.querySelectorAll('li.ant-select-dropdown-menu-item');
+                var found = false;
+
+                for (var i = 0; i < options.length; i++) {
+                    if (options[i].textContent.trim() === '补全题') {
+                        options[i].click();
+                        // console.log(`已选择题型: ${type}`);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    console.warn(`未找到题型选项: 补全题`);
+                }
+                resolve();
+            }, 200);
+        });
+
+        // 3. 使用XPath点击对应标签
+        await new Promise(resolve => {
+            setTimeout(function () {
+                const success = clickBlankFillingElement('阅读还原');
+                if (success) {
+                    console.log(`已点击阅读还原标签`);
+                } else {
+                    console.warn(`未能点击阅读还原标签`);
+                }
+                resolve();
+            }, 300);
+        });
+    } else {
+        console.error('未找到题型下拉框');
+    }
+    if (newContent.options && newContent.options.length > 4) {
+        var times = newContent.options.length - 4;
+        for (var t = 0; t < times; t++) {
+            const addBtn =
+                document.querySelector("button.options-add.ant-btn") ||
+                Array.from(document.querySelectorAll("button")).find(
+                    (b) => b.textContent && b.textContent.trim().includes("添加选项"),
+                );
+            if (!addBtn) {
+                console.warn('⚠️ 未找到 "添加选项" 按钮');
+                break;
+            }
+            addBtn.click();
+        }
+        console.log(`✅ 已点击添加选项按钮 ${times} 次`);
+    }
+}
+
+
+async function final_main(newContent) {
+    await pre_main();
+    await main(newContent);
+}
+
+final_main(newContent);
+
+
+    "#,)
+    }
     /// 单选题附加代码
     fn get_single_choice_code(&self) -> String {
         String::from(
