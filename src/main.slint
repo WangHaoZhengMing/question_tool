@@ -12,7 +12,8 @@ import {
     MutiTiankong,
     WanXingTiankongNote,
     AboutPage,
-    GereralFill
+    GereralFill,
+    CompleteQuestion,
 } from "ui/pages/pages.slint";
 import { Page } from "ui/pages/page.slint";
 import { SideBar } from "ui/side_bar.slint";
@@ -42,6 +43,7 @@ export component App inherits Window {
         else if (side-bar.current-item == 4) { "多个填空题" }
         else if (side-bar.current-item == 5) { "语篇填空" }
         else if (side-bar.current-item == 8) { "完形填空note" }
+        else if (side-bar.current-item == 8) {"补全题"}
         else { "未知" }
     }
     
@@ -87,6 +89,7 @@ export component App inherits Window {
                 @tr("Menu" => "LLM 设置"), 
                 @tr("Menu" => "About"),
                 @tr("Menu" => "完型填空打标工具")
+                @tr("Menu" => "补全题")
             ];
         }
 
@@ -203,6 +206,18 @@ export component App inherits Window {
         
         // 完型填空打标工具页面 (index: 8)
         if (side-bar.current-item == 8): WanXingTiankongNote {
+            current_image: root.current_image;
+            prefill_text <=> root.prefill_text;
+            question_type <=> root.question_type;
+            model_reply <=> root.model_reply;
+            is_streaming <=> root.is_streaming;
+            
+            send_message => { root.send_message(); }
+            copy_reply_and_addcode => { root.copy_reply_and_addcode(); }
+            stop_response => { root.stop_response(); }
+            clear_image => { root.clear_image(); }
+        }
+        if (side-bar.current-item == 8): CompleteQuestion {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
