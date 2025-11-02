@@ -88,7 +88,7 @@ export component App inherits Window {
                 @tr("Menu" => "语篇填空"),
                 @tr("Menu" => "LLM 设置"), 
                 @tr("Menu" => "About"),
-                @tr("Menu" => "完型填空打标工具")
+                @tr("Menu" => "完型填空打标工具"),
                 @tr("Menu" => "补全题")
             ];
         }
@@ -217,7 +217,7 @@ export component App inherits Window {
             stop_response => { root.stop_response(); }
             clear_image => { root.clear_image(); }
         }
-        if (side-bar.current-item == 8): CompleteQuestion {
+        if (side-bar.current-item == 9): CompleteQuestion {
             current_image: root.current_image;
             prefill_text <=> root.prefill_text;
             question_type <=> root.question_type;
