@@ -1,6 +1,6 @@
 // 导入标准组件
 import { CheckBox, StandardListView } from "std-widgets.slint";
-
+import "../../icon/SF-Symbols.ttf";
 // 导入页面组件
 import { 
     SingleChoice,
@@ -43,7 +43,7 @@ export component App inherits Window {
         else if (side-bar.current-item == 4) { "多个填空题" }
         else if (side-bar.current-item == 5) { "语篇填空" }
         else if (side-bar.current-item == 8) { "完形填空note" }
-        else if (side-bar.current-item == 8) {"补全题"}
+        else if (side-bar.current-item == 9) {"补全题"}
         else { "未知" }
     }
     

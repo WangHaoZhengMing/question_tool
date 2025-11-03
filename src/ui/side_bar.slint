@@ -116,11 +116,13 @@ component SideBarItem inherits Rectangle {
             }
             
             icon-text := Text {
+                font-family: "SF-Symbols";
                 text: root.icon;
-                font-size: 16px * icon-container.icon-scale;
+                font-size: 20px * icon-container.icon-scale;
                 color: root.selected ? #0067c0 : (touch.has-hover ? #1976d2 : #424242);
                 horizontal-alignment: center;
                 vertical-alignment: center;
+                y: 3px;
                 
                 animate color, font-size { 
                     duration: 250ms; 
@@ -163,17 +165,18 @@ export component SideBar inherits Rectangle {
     property <length> max-sidebar-width: 400px;
 
     // Function to get default icon for common menu items
-    pure function get-default-icon(text: string) -> string {
-        if (text == "听力理解") { "🔊" }
-        else if (text == "单项选择") { "✔️" }
-        else if (text == "完型填空") { "🧩" }
-        else if (text == "阅读理解") { "📚 " }
-        else if (text == "语篇填空") { "📝" }
-        else if (text == "填空题") { "📋" }
-        else if (text == "About") { "ℹ️" }
-        else if (text == "Home") { "🏡" }
-        else if (text == "Settings") { "🔧" }
-        else { "📌" }
+      pure function get-default-icon(text: string) -> string {
+        if (text == "听力理解") { "" }
+        else if (text == "单项选择") { "" }
+        else if (text == "完型填空") { "" }
+        else if (text == "阅读理解") { "Ń" }
+        else if (text == "语篇填空") { "ŏ" }
+        else if (text == "填空题") { "ť" }
+        else if (text == "多个填空") { "" }
+        else if (text == "Home") { "" }
+        else if (text == "LLM 设置") { "" }
+        else if (text == "关于") { "" }
+        else { "" }
     }
 
     width: root.sidebar-width;
