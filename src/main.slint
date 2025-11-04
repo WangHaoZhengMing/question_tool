@@ -36,7 +36,7 @@ export component App inherits Window {
     
     // 根据侧边栏选择确定问题类型
     in-out property <string> question_type: {
-        if (side-bar.current-item == 0) { "听力理解" }
+        if (side-bar.current-item == 0) { "单项听力理解" }
         else if (side-bar.current-item == 1) { "单选题" }
         else if (side-bar.current-item == 2) { "完型填空" }
         else if (side-bar.current-item == 3) { "阅读理解" }

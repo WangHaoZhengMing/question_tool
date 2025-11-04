@@ -3,8 +3,11 @@ name: Build & Release (Rust Multi-platform)
 on:
   workflow_dispatch:
   push:
+    branches: [ main ]  # 在 push 到 main 分支时触发
     tags:
-      - "v*"    # 只有打 tag 时触发，例如 v1.0.0
+      - "v*"    # 打 tag 时也触发，用于正式发布
+  pull_request:
+    branches: [ main ]  # 在创建 PR 到 main 分支时触发
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,10 +25,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust (stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
+
+      # 安装系统依赖（主要是为了 Slint GUI）
+      - name: Install system dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libx11-dev libxrandr-dev libgl1-mesa-dev
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # macOS 通常不需要额外依赖，但如果需要可以在这里添加
+          echo "No additional dependencies needed for macOS"
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -38,7 +51,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build release
-        run: cargo build --release
+        run: cargo build --release --verbose
 
       # 压缩构建产物（根据不同系统执行不同命令）
       - name: Package executable
@@ -46,22 +59,26 @@ jobs:
         run: |
           mkdir dist
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp target/release/*.exe dist/
-            cd dist && 7z a app-${{ matrix.os }}.zip *.exe
+            cp target/release/question_tool.exe dist/
+            cd dist && 7z a question_tool-${{ matrix.os }}.zip question_tool.exe
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            cp target/release/question_tool dist/
+            cd dist && tar -czvf question_tool-${{ matrix.os }}.tar.gz question_tool
           else
-            cp target/release/* dist/
-            cd dist && tar -czvf app-${{ matrix.os }}.tar.gz *
+            cp target/release/question_tool dist/
+            cd dist && tar -czvf question_tool-${{ matrix.os }}.tar.gz question_tool
           fi
 
       # 上传制品供下一步 Release 使用
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-${{ matrix.os }}
+          name: question_tool-${{ matrix.os }}
           path: dist/*
   release:
     needs: build
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')  # 只有在打 tag 时才创建 release
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
