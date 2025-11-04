@@ -166,7 +166,7 @@ export component SideBar inherits Rectangle {
 
     // Function to get default icon for common menu items
       pure function get-default-icon(text: string) -> string {
-        if (text == "听力理解") { "" }
+        if (text == "单项听力理解") { "" }
         else if (text == "单项选择") { "" }
         else if (text == "完型填空") { "" }
         else if (text == "阅读理解") { "Ń" }
@@ -175,7 +175,9 @@ export component SideBar inherits Rectangle {
         else if (text == "多个填空") { "" }
         else if (text == "Home") { "" }
         else if (text == "LLM 设置") { "" }
-        else if (text == "关于") { "" }
+        else if (text == "About") { "-" }
+        else if (text == "完型填空打标工具") { "ǔ" }
+        else if (text == "补全题") { "" }
         else { "" }
     }
 

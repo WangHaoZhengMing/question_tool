@@ -289,6 +289,9 @@ var Questions = [
         String::from(
             r#"
 //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹.你要分成多个{}去写
+//你要好好看看一个题目有多少个空，然后每个空的data-blank-id都不一样。你要注意我给你的题目有几个空，你也打几个空
+//如果原题目中横线后面有一个括号，括号里面有提示词，你也要把括号和提示词写上去
+//不用加题号 不用加题号 不用加题号 不用加题号 不用加题号 不用加题号
 var Questions = [
     {
         stem: `Which of the following is a <span class="underline fillblank" data-blank-id="593417796829762300" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> language?`, //这里不要带题号.这里的data-blank-id每次不要相同
@@ -312,7 +315,7 @@ var Questions = [
             r#"
 //请直接输出如下格式的JavaScript代码，不要回复其他内容。不要带有```javascript ```，只输出代码就可以了。我不用代码块包裹
 //段落两端对齐，首行缩进，字体字号不变。
-//如果有表格，那就用 Html 的表格语法来写。如果有框，这个框要用html的一个行一个列的表格来画。
+//如果有表格，那就用 Html 的表格语法来写。如果有个框，这个框要用html的一个行一个列的表格来画。
 var Questions = [
     {
             stem:`Good morning my name is (1) <span class="underline fillblank" data-blank-id="593417796829762302" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span> (这里可能会有提示的单词，你也要写上) I am from (2) <span class="underline fillblank" data-blank-id="593417796829762303" contenteditable="false" style="text-indent: 0; border-bottom: 1px solid #f6c908;display:inline-block;min-width: 40px;max-width: 80px;"><input type="text" style="display:none">   </span>`,
