@@ -1,10 +1,9 @@
 use super::AppState;
 use crate::App;
-use crate::core::llm_backend::LLMResponse;
 use crate::core::question_type::{AdditionalCodeGenerator, Question, QuestionType};
 use slint::ComponentHandle;
 use std::str::FromStr;
-use std::sync::{Arc, mpsc, atomic::{AtomicBool, Ordering}};
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 /// UI 事件处理器
 pub struct EventHandlers {
@@ -92,15 +91,15 @@ impl EventHandlers {
         app_handle: slint::Weak<App>,
         mut question: Question,
         llm_settings: Arc<std::sync::Mutex<crate::app::AppLLMSettingsManager>>,
-        stop_signal: Arc<AtomicBool>,
+        _stop_signal: Arc<AtomicBool>, // 保留参数以保持接口兼容，但当前实现不支持中途停止
     ) {
-        // 创建响应通道
         tracing::info!("[event_handlers] Preparing to send LLM request");
-        let (response_sender, response_receiver) = mpsc::channel::<LLMResponse>();
 
         // 在后台线程中处理 LLM 请求
         let text_for_llm = question.prompt_stem();
         let image_path = question.img_path.clone();
+        let app_for_response = app_handle.clone();
+        
         tokio::spawn(async move {
             // 从设置中获取当前的 LLM manager
             let manager = if let Ok(settings) = llm_settings.lock() {
@@ -111,56 +110,43 @@ impl EventHandlers {
             };
 
             let result = manager
-                .send_message(text_for_llm, image_path.as_deref(), response_sender)
+                .send_message(text_for_llm, image_path.as_deref())
                 .await;
 
-            if let Err(e) = result {
-                tracing::error!("[event_handlers] LLM request failed: {}", e);
-            }
-        });
-
-        // 在主线程中处理响应
-        let app_for_response = app_handle.clone();
-        let stop_signal_for_response = stop_signal.clone();
-        std::thread::spawn(move || {
-            while let Ok(response) = response_receiver.recv() {
-                // 检查停止信号
-                if stop_signal_for_response.load(Ordering::Relaxed) {
-                    tracing::info!("[event_handlers] Stop signal received, stopping response");
-                    // UI 状态已在按钮点击时更新，这里只需退出循环
-                    break;
-                }
-                
-                tracing::trace!(
-                    "[event_handlers] Received LLM response chunk, length: {}",
-                    response.content.len()
-                );
-
-                // 使用slint的invoke_from_event_loop来确保UI更新在主线程中执行
-                let content = response.content.clone();
-                let is_complete = response.is_complete;
-                let app_weak = app_for_response.clone();
-
-                slint::invoke_from_event_loop(move || {
-                    if let Some(app) = app_weak.upgrade() {
-                        tracing::debug!(
-                            "[event_handlers] Updating UI with response length: {}",
-                            content.len()
-                        );
-                        app.set_model_reply(content.into());
-
-                        if is_complete {
+            match result {
+                Ok(response_content) => {
+                    tracing::info!("[event_handlers] LLM request successful, response length: {}", response_content.len());
+                    
+                    // 使用 slint 的 invoke_from_event_loop 来确保 UI 更新在主线程中执行
+                    let content = response_content.clone();
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(app) = app_for_response.upgrade() {
+                            tracing::debug!(
+                                "[event_handlers] Updating UI with response length: {}",
+                                content.len()
+                            );
+                            app.set_model_reply(content.into());
                             app.set_is_streaming(false);
                             tracing::info!("[event_handlers] LLM response completed, UI updated");
-                            // tracing::info!("[event_handlers] LLM response content: {}", content);
                         }
-                    }
-                })
-                .ok();
-
-                if is_complete {
-                    question.set_model_reply(response.content.into());
-                    break;
+                    })
+                    .ok();
+                    
+                    // 设置问题的回复
+                    question.set_model_reply(response_content.into());
+                }
+                Err(e) => {
+                    tracing::error!("[event_handlers] LLM request failed: {}", e);
+                    
+                    // 更新 UI 显示错误信息
+                    let error_msg = format!("Error: {}", e);
+                    slint::invoke_from_event_loop(move || {
+                        if let Some(app) = app_for_response.upgrade() {
+                            app.set_model_reply(error_msg.into());
+                            app.set_is_streaming(false);
+                        }
+                    })
+                    .ok();
                 }
             }
         });

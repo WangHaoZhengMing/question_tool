@@ -1,13 +1,10 @@
 name: Build & Release (Rust Multi-platform)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 允许手动触发
   push:
-    branches: [ main ]  # 在 push 到 main 分支时触发
     tags:
-      - "v*"    # 打 tag 时也触发，用于正式发布
-  pull_request:
-    branches: [ main ]  # 在创建 PR 到 main 分支时触发
+      - "v*"    # 只有在打 tag 时才触发，用于正式发布
 
 env:
   CARGO_TERM_COLOR: always
@@ -91,3 +88,19 @@ jobs:
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# 如何使用 tag 触发此 workflow:
+#
+# 1. 首先，确保你的代码已经提交到本地 git 仓库。
+#    git add .
+#    git commit -m "Your commit message"
+#
+# 2. 然后，在本地打上一个新的 tag。版本号建议遵循语义化版本规范 (https://semver.org/lang/zh-CN/)。
+#    例如，创建一个 v1.0.0 的 tag:
+#    git tag v1.0.0
+#
+# 3. 最后，将这个 tag 推送到远程 GitHub 仓库。
+#    git push origin v1.0.0
+#
+#    推送 tag 后，GitHub Actions 就会自动开始执行此 workflow。
+#    你可以在 GitHub 仓库的 "Actions" 标签页下看到运行状态。

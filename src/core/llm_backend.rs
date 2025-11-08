@@ -1,7 +1,5 @@
 use std::fmt::Display;
 use std::path::{ Path};
-use std::sync::mpsc;
-
 use async_llm::Error;
 
 /// LLM 响应结构
@@ -15,13 +13,11 @@ pub struct LLMResponse {
 #[derive(Clone, Debug, PartialEq)]
 pub enum LLMProvider {
     GPT,
-    GitHub,
 }
 impl Display for LLMProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LLMProvider::GPT => write!(f, "GPT"),
-            LLMProvider::GitHub => write!(f, "GitHub"),
         }
     }
 }
@@ -34,18 +30,15 @@ pub trait LLMBackend: Send + Sync {
     
     async fn send_message(
         &self,
-        text: String,
+        user_text: String,
         image_path: Option<&Path>,
-        response_sender: mpsc::Sender<LLMResponse>,
-    ) -> Result<(), Error>;
+    ) -> Result<String, Error>;
     
     /// 测试 LLM 是否可用
     async fn test_availability(&self) -> Result<String, Error>;
 }
 
-use super::gpt_backend::GPTBackend;
-use super::github_backend::GitHubBackend;
-
+use super::gpt_backend::Openai;
 /// LLM 管理器，负责管理不同的 LLM 后端
 pub struct LLMManager {
     backends: Vec<Box<dyn LLMBackend>>,
@@ -64,7 +57,7 @@ impl LLMManager {
         let mut manager = Self::new();
 
         // 添加 GPT 后端
-        let mut gpt_backend = GPTBackend::default();
+        let mut gpt_backend = Openai::default();
         if let Some(api_key) = &config.api_key {
             gpt_backend = gpt_backend.with_api_key(api_key.clone());
         }
@@ -73,25 +66,13 @@ impl LLMManager {
                 gpt_backend = gpt_backend.with_base_url(base_url.clone());
             }
         }
-        gpt_backend.model = config.model.clone();
+        gpt_backend.model_name = config.model.clone();
 
         let gpt_index = manager.add_backend(Box::new(gpt_backend));
-
-        // 添加 GitHub 后端
-        let mut github_backend = GitHubBackend::new(config.model.clone());
-        if let Some(token) = &config.github_token {
-            github_backend = github_backend.with_api_key(token.clone());
-        }
-
-        let github_index = manager.add_backend(Box::new(github_backend));
-
         // 设置当前后端
         match config.provider.as_str() {
             "GPT" => {
                 let _ = manager.set_current_backend(gpt_index);
-            }
-            "GitHub" => {
-                let _ = manager.set_current_backend(github_index);
             }
             _ => {
                 let _ = manager.set_current_backend(gpt_index);
@@ -145,11 +126,10 @@ impl LLMManager {
         &self,
         text: String,
         image_path: Option<&Path>,
-        response_sender: mpsc::Sender<LLMResponse>,
-    ) -> Result<(), Error> {
+    ) -> Result<String, Error> {
         if let Some(backend) = self.current_backend() {
             tracing::info!("Sending message to LLM backend: {}", backend.provider());
-            backend.send_message(text, image_path, response_sender).await
+            backend.send_message(text, image_path).await
         } else {
             Err(Error::Stream("No backend available".into()))
         }
@@ -185,7 +165,7 @@ mod tests {
         let mut manager = LLMManager::new();
         
         // 添加 GPT 后端
-        let gpt_backend = Box::new(GPTBackend::default());
+        let gpt_backend = Box::new(Openai::default());
         let gpt_index = manager.add_backend(gpt_backend);
         
         // 测试后端列表
